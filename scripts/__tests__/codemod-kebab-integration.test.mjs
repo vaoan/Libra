@@ -141,4 +141,21 @@ describe("codemod CLI integration", () => {
     expect(output).toContain("dry run — nothing written");
     expect(before.map(([file]) => [file, read(file)])).toEqual(before);
   });
+
+  it("refuses to apply against a dirty working tree, but still dry-runs", () => {
+    fixtureDir = writeFixture();
+    // A fresh repo with untracked fixture files is, by definition, dirty.
+    execFileSync("git", ["init", "-q"], { cwd: fixtureDir, stdio: "pipe" });
+
+    expect(runCodemod(fixtureDir, ["--dry-run"])).toContain(
+      "dry run — nothing written",
+    );
+
+    expect(() => runCodemod(fixtureDir)).toThrow();
+    expect(
+      fs.existsSync(
+        path.join(fixtureDir, "src", "components", "StatusCard.tsx"),
+      ),
+    ).toBe(true);
+  });
 });

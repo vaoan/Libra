@@ -85,17 +85,22 @@ function main() {
 
   // The engine performs irreversible `git mv` calls in the same pass that can
   // throw, and a pass-3 failure leaves renamed files with stale specifiers.
-  // Insisting on a clean tree keeps `git checkout .` a complete undo.
+  // Insisting on a clean tree keeps `git checkout .` a complete undo. A dry
+  // run writes nothing, so it warns and continues rather than refusing.
   const status = workingTreeStatus(workspace);
   if (status !== null && status.trim() !== "") {
-    console.error(
-      "working tree is not clean — refusing to run.\n" +
-        "This codemod moves files with `git mv` and rewrites imports in two\n" +
-        "separate save steps; a failure part-way is only recoverable with\n" +
-        "`git checkout`. Commit or stash your changes first.\n\n" +
-        status.trimEnd(),
-    );
-    process.exit(1);
+    const message =
+      "working tree is not clean.\n" +
+      "This codemod moves files with `git mv` and rewrites imports in two\n" +
+      "separate save steps; a failure part-way is only recoverable with\n" +
+      "`git checkout`. Commit or stash your changes first.\n\n" +
+      status.trimEnd();
+
+    if (!values["dry-run"]) {
+      console.error(`${message}\n\nrefusing to run.`);
+      process.exit(1);
+    }
+    console.warn(`${message}\n\ncontinuing — a dry run writes nothing.\n`);
   }
 
   const files = collectFiles(workspace).map(toPosix);

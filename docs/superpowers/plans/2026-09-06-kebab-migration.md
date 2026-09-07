@@ -30,10 +30,10 @@
   specifiers, pass 3 rewrites them); nothing manual is required, but do not assume
   `pnpm typecheck` alone would have caught it on Windows.
 - Zero `.stories.tsx` and zero `.module.css` files repo-wide, so no sibling file must rename in lockstep.
-- The CLI refuses to run against a dirty working tree (non-zero exit). Pass 2 performs
+- The CLI refuses to apply against a dirty working tree (non-zero exit). Pass 2 performs
   irreversible `git mv` calls before the first `saveSync`, so `git checkout` is the only
-  recovery from a mid-run failure — it must be a complete undo. Commit or stash first,
-  including before a `--dry-run`.
+  recovery from a mid-run failure — it must be a complete undo. Commit or stash first.
+  `--dry-run` writes nothing, so it warns about a dirty tree and continues.
 - Enforcement must not be switched on until every workspace is migrated, or CI reddens for the duration.
 - Identifier casing (variables, functions, constants, enum-like objects) is **out of scope**. Only file names change.
 
