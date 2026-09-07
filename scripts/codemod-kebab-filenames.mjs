@@ -58,13 +58,15 @@ function main() {
   const files = collectFiles(workspace);
   const cwd = process.cwd();
   const { plan, collisions } = buildRenamePlan(
-    files.map((f) => path.relative(cwd, f).split(path.sep).join("/")),
+    files.map((f) => f.split(path.sep).join("/")),
   );
 
   if (collisions.length > 0) {
     console.error(`${collisions.length} collision(s) — refusing to proceed:`);
     for (const { target, sources } of collisions) {
-      console.error(`  ${target} <= ${sources.join(", ")}`);
+      console.error(
+        `  ${path.relative(cwd, target).split(path.sep).join("/")} <= ${sources.map((s) => path.relative(cwd, s).split(path.sep).join("/")).join(", ")}`,
+      );
     }
     process.exit(1);
   }
@@ -79,13 +81,21 @@ function main() {
       `${computed.length} computed import() call(s) need manual review:`,
     );
     for (const entry of computed) {
-      console.warn(`  ${entry.file}:${entry.line}  ${entry.text}`);
+      const displayFile = path
+        .relative(cwd, entry.file)
+        .split(path.sep)
+        .join("/");
+      console.warn(`  ${displayFile}:${entry.line}  ${entry.text}`);
     }
   }
 
   console.log(`${plan.length} file(s) to rename in ${values.workspace}`);
   for (const { from, to, caseOnly } of plan) {
-    console.log(`  ${from} -> ${to}${caseOnly ? "  (case-only)" : ""}`);
+    const displayFrom = path.relative(cwd, from).split(path.sep).join("/");
+    const displayTo = path.relative(cwd, to).split(path.sep).join("/");
+    console.log(
+      `  ${displayFrom} -> ${displayTo}${caseOnly ? "  (case-only)" : ""}`,
+    );
   }
 
   if (values["dry-run"]) {
