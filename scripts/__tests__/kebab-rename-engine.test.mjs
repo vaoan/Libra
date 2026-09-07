@@ -119,4 +119,32 @@ describe("applyRenames", () => {
       ]),
     ).toThrow("not in project: /src/Ghost.ts");
   });
+
+  it("leaves alias imports of non-renamed files completely unchanged", () => {
+    const p = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: { baseUrl: "/", paths: { "@/*": ["src/*"] } },
+    });
+    p.createSourceFile(
+      "/src/components/Button.tsx",
+      `export const Button = () => null;`,
+    );
+    p.createSourceFile(
+      "/src/components/StatusCard.tsx",
+      `export const StatusCard = () => null;`,
+    );
+    p.createSourceFile(
+      "/src/app/page.tsx",
+      `import { Button } from "@/components/Button";\nimport { StatusCard } from "@/components/StatusCard";\nexport default () => (Button(), StatusCard());`,
+    );
+
+    // Only rename StatusCard, not Button
+    applyRenames(p, buildRenamePlan(["/src/components/StatusCard.tsx"]).plan);
+
+    const pageText = p.getSourceFileOrThrow("/src/app/page.tsx").getFullText();
+    // Button import should not be changed (it's not in the plan)
+    expect(pageText).toContain(`from "@/components/Button"`);
+    // StatusCard import should be updated to the kebab-case name
+    expect(pageText).toContain(`from "@/components/status-card"`);
+  });
 });
