@@ -1,7 +1,14 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { Project } from "ts-morph";
 import { buildRenamePlan } from "../lib/kebab-rename-plan.mjs";
-import { applyRenames } from "../lib/kebab-rename-engine.mjs";
+import {
+  applyRenames,
+  gitMoveCaseOnly,
+  recordImportSpecifiers,
+} from "../lib/kebab-rename-engine.mjs";
 
 function project(files) {
   const p = new Project({ useInMemoryFileSystem: true });
@@ -146,5 +153,328 @@ describe("applyRenames", () => {
     expect(pageText).toContain(`from "@/components/Button"`);
     // StatusCard import should be updated to the kebab-case name
     expect(pageText).toContain(`from "@/components/status-card"`);
+  });
+});
+
+describe("recordImportSpecifiers", () => {
+  it("records a RELATIVE specifier whose target is a case-only rename", () => {
+    const p = project({
+      "/src/Pagination.tsx": `export const Pagination = () => null;`,
+      "/src/page.tsx": `import { Pagination } from "./Pagination";\nexport default Pagination;`,
+    });
+    const { plan } = buildRenamePlan(["/src/Pagination.tsx"]);
+    const records = recordImportSpecifiers(p, plan);
+
+    expect(records).toHaveLength(1);
+    expect(records[0].relative).toBe(true);
+    expect(records[0].specifier).toBe("./Pagination");
+    expect(records[0].resolvedPath).toBe("/src/Pagination.tsx");
+  });
+
+  it("records a relative re-export of a case-only rename too", () => {
+    const p = project({
+      "/src/Pagination.tsx": `export const Pagination = () => null;`,
+      "/src/index.ts": `export { Pagination } from "./Pagination";`,
+    });
+    const { plan } = buildRenamePlan(["/src/Pagination.tsx"]);
+
+    expect(recordImportSpecifiers(p, plan).map((r) => r.specifier)).toEqual([
+      "./Pagination",
+    ]);
+  });
+
+  it("does NOT record a relative specifier for a structural rename", () => {
+    const p = project({
+      "/src/LoginForm.tsx": `export const LoginForm = () => null;`,
+      "/src/page.tsx": `import { LoginForm } from "./LoginForm";\nexport default LoginForm;`,
+    });
+    const { plan } = buildRenamePlan(["/src/LoginForm.tsx"]);
+
+    // ts-morph's move rewrites these on its own.
+    expect(recordImportSpecifiers(p, plan)).toEqual([]);
+  });
+
+  it("still records non-relative specifiers", () => {
+    const p = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: { baseUrl: "/", paths: { "@/*": ["src/*"] } },
+    });
+    p.createSourceFile(
+      "/src/components/StatusCard.tsx",
+      `export const StatusCard = () => null;`,
+    );
+    p.createSourceFile(
+      "/src/app/page.tsx",
+      `import { StatusCard } from "@/components/StatusCard";\nexport default StatusCard;`,
+    );
+    const { plan } = buildRenamePlan(["/src/components/StatusCard.tsx"]);
+    const records = recordImportSpecifiers(p, plan);
+
+    expect(records).toHaveLength(1);
+    expect(records[0].relative).toBe(false);
+    expect(records[0].specifier).toBe("@/components/StatusCard");
+  });
+});
+
+describe("applyRenames on a case-INSENSITIVE (real) filesystem", () => {
+  let directory;
+
+  afterEach(() => {
+    if (directory) fs.rmSync(directory, { recursive: true, force: true });
+    directory = null;
+  });
+
+  it("rewrites a relative importer of a case-only rename", () => {
+    directory = fs
+      .mkdtempSync(path.join(os.tmpdir(), "kebab-caseonly-"))
+      .split(path.sep)
+      .join("/");
+    fs.mkdirSync(`${directory}/src`, { recursive: true });
+    fs.writeFileSync(
+      `${directory}/src/Pagination.tsx`,
+      "export const Pagination = () => null;\n",
+    );
+    fs.writeFileSync(
+      `${directory}/src/page.tsx`,
+      'import { Pagination } from "./Pagination";\nexport default Pagination;\n',
+    );
+
+    const p = new Project({
+      compilerOptions: { baseUrl: directory, jsx: 4 },
+      skipAddingFilesFromTsConfig: true,
+    });
+    p.addSourceFilesAtPaths(`${directory}/src/**/*.tsx`);
+
+    const { plan } = buildRenamePlan([`${directory}/src/Pagination.tsx`]);
+    expect(plan[0].caseOnly).toBe(true);
+
+    applyRenames(p, plan);
+
+    const page = fs.readFileSync(`${directory}/src/page.tsx`, "utf8");
+    expect(page).toContain('from "./pagination"');
+    expect(page).not.toContain('from "./Pagination"');
+  });
+});
+
+describe("vi.mock specifier rewriting", () => {
+  it("rewrites a relative vi.mock target", () => {
+    const p = project({
+      "/src/LoginForm.tsx": `export const LoginForm = () => null;`,
+      "/src/login.test.ts": `import { vi } from "vitest";\nvi.mock("./LoginForm");`,
+    });
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/LoginForm.tsx"]).plan,
+    );
+
+    expect(report.mockRewrites).toBe(1);
+    expect(
+      p.getSourceFileOrThrow("/src/login.test.ts").getFullText(),
+    ).toContain(`vi.mock("./login-form")`);
+  });
+
+  it("rewrites an aliased vi.mock target", () => {
+    const p = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: { baseUrl: "/", paths: { "@/*": ["src/*"] } },
+    });
+    p.createSourceFile(
+      "/src/components/StatusCard.tsx",
+      `export const StatusCard = () => null;`,
+    );
+    p.createSourceFile(
+      "/tests/status.test.ts",
+      `import { vi } from "vitest";\nvi.mock("@/components/StatusCard");\nvi.doMock("@/components/StatusCard");`,
+    );
+
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/components/StatusCard.tsx"]).plan,
+    );
+
+    expect(report.mockRewrites).toBe(2);
+    const text = p.getSourceFileOrThrow("/tests/status.test.ts").getFullText();
+    expect(text).toContain(`vi.mock("@/components/status-card")`);
+    expect(text).toContain(`vi.doMock("@/components/status-card")`);
+  });
+
+  it("rewrites vi.importActual and require targets", () => {
+    const p = project({
+      "/src/MSWProvider.tsx": `export const MSWProvider = () => null;`,
+      "/src/setup.ts": `import { vi } from "vitest";\nvi.importActual("./MSWProvider");\nconst m = require("./MSWProvider");`,
+    });
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/MSWProvider.tsx"]).plan,
+    );
+
+    expect(report.mockRewrites).toBe(2);
+    const text = p.getSourceFileOrThrow("/src/setup.ts").getFullText();
+    expect(text).toContain(`vi.importActual("./msw-provider")`);
+    expect(text).toContain(`require("./msw-provider")`);
+  });
+
+  it("leaves a mock of a non-renamed module untouched", () => {
+    const p = project({
+      "/src/LoginForm.tsx": `export const LoginForm = () => null;`,
+      "/src/login.test.ts": `import { vi } from "vitest";\nvi.mock("next/navigation");`,
+    });
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/LoginForm.tsx"]).plan,
+    );
+
+    expect(report.mockRewrites).toBe(0);
+    expect(
+      p.getSourceFileOrThrow("/src/login.test.ts").getFullText(),
+    ).toContain(`vi.mock("next/navigation")`);
+  });
+
+  it("reports an unresolvable non-kebab mock target for manual attention", () => {
+    const p = project({
+      "/src/LoginForm.tsx": `export const LoginForm = () => null;`,
+      "/src/login.test.ts": `import { vi } from "vitest";\nvi.mock("@/nowhere/GhostModule");`,
+    });
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/LoginForm.tsx"]).plan,
+    );
+
+    expect(report.mockManual).toHaveLength(1);
+    expect(report.mockManual[0].specifier).toBe("@/nowhere/GhostModule");
+    expect(report.mockManual[0].line).toBe(2);
+  });
+
+  it("reports a computed vi.mock target for manual attention", () => {
+    const p = project({
+      "/src/LoginForm.tsx": `export const LoginForm = () => null;`,
+      "/src/login.test.ts":
+        'import { vi } from "vitest";\nconst n = "LoginForm";\nvi.mock(`./${n}`);',
+    });
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/LoginForm.tsx"]).plan,
+    );
+
+    expect(report.mockManual).toHaveLength(1);
+    expect(report.mockManual[0].reason).toMatch(/computed/);
+  });
+});
+
+describe("last-segment guard", () => {
+  it("skips and reports a specifier whose last segment does not name the file", () => {
+    const p = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: {
+        baseUrl: "/",
+        paths: { "shared/app-root-layout": ["src/AppRootLayout"] },
+      },
+    });
+    p.createSourceFile(
+      "/src/AppRootLayout.tsx",
+      `export const AppRootLayout = () => null;`,
+    );
+    p.createSourceFile(
+      "/app/page.tsx",
+      `import { AppRootLayout } from "shared/app-root-layout";\nexport default AppRootLayout;`,
+    );
+
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/AppRootLayout.tsx"]).plan,
+    );
+
+    expect(report.specifierMismatches).toHaveLength(1);
+    expect(report.specifierMismatches[0].specifier).toBe(
+      "shared/app-root-layout",
+    );
+    // Left exactly as it was, rather than rewritten to a path that resolves
+    // to nothing.
+    expect(p.getSourceFileOrThrow("/app/page.tsx").getFullText()).toContain(
+      `from "shared/app-root-layout"`,
+    );
+  });
+});
+
+describe("gitMoveCaseOnly", () => {
+  it("moves through a temporary name", () => {
+    const run = vi.fn();
+    gitMoveCaseOnly("/a/Pagination.tsx", "/a/pagination.tsx", { run });
+
+    expect(run.mock.calls.map((call) => call[1])).toEqual([
+      ["mv", "/a/Pagination.tsx", "/a/Pagination.tsx.casetmp"],
+      ["mv", "/a/Pagination.tsx.casetmp", "/a/pagination.tsx"],
+    ]);
+  });
+
+  it("surfaces git's stderr as text, not as a decimal byte dump", () => {
+    const run = vi.fn(() => {
+      const error = new Error("Command failed");
+      error.stderr = Buffer.from("fatal: bad source, source=Pagination.tsx\n");
+      throw error;
+    });
+
+    expect(() =>
+      gitMoveCaseOnly("/a/Pagination.tsx", "/a/pagination.tsx", { run }),
+    ).toThrow(/fatal: bad source, source=Pagination\.tsx/);
+  });
+
+  it("restores the .casetmp file when the second move fails", () => {
+    const run = vi.fn((_command, args) => {
+      if (args[2] === "/a/pagination.tsx") {
+        const error = new Error("Command failed");
+        error.stderr = Buffer.from("fatal: destination exists\n");
+        throw error;
+      }
+    });
+
+    expect(() =>
+      gitMoveCaseOnly("/a/Pagination.tsx", "/a/pagination.tsx", { run }),
+    ).toThrow(/restored/);
+
+    expect(run.mock.calls[2][1]).toEqual([
+      "mv",
+      "/a/Pagination.tsx.casetmp",
+      "/a/Pagination.tsx",
+    ]);
+  });
+
+  it("falls back to a filesystem rename when git cannot restore the temp file", () => {
+    const run = vi.fn((_command, args) => {
+      if (args[1].endsWith(".casetmp")) {
+        const error = new Error("Command failed");
+        error.stderr = Buffer.from("fatal: not under version control\n");
+        throw error;
+      }
+    });
+    const rename = vi.fn();
+
+    expect(() =>
+      gitMoveCaseOnly("/a/Pagination.tsx", "/a/pagination.tsx", {
+        run,
+        rename,
+      }),
+    ).toThrow(/restored/);
+
+    expect(rename).toHaveBeenCalledWith(
+      "/a/Pagination.tsx.casetmp",
+      "/a/Pagination.tsx",
+    );
+  });
+
+  it("warns instead of hiding the failure when cleanup is impossible", () => {
+    const run = vi.fn((_command, args) => {
+      if (args[1].endsWith(".casetmp")) throw new Error("git exploded");
+    });
+    const rename = vi.fn(() => {
+      throw new Error("EPERM");
+    });
+
+    expect(() =>
+      gitMoveCaseOnly("/a/Pagination.tsx", "/a/pagination.tsx", {
+        run,
+        rename,
+      }),
+    ).toThrow(/could not clean up/);
   });
 });

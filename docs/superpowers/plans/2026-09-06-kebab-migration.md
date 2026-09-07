@@ -20,18 +20,30 @@
 - `git config core.ignorecase` is `true` in this repository. Case-only renames must go through a temporary filename.
 - The kebab conversion **must split acronym boundaries**: `MSWProvider` → `msw-provider`, `useAIData` → `use-ai-data`, `graphqlFetch` → `graphql-fetch`, `AIOptimization` → `ai-optimization`.
 - Verified 2026-09-06 across all 1,067 `.ts`/`.tsx` files in `apps/*/{src,tests,test,e2e}` and `packages/*/{src,tests}`: **zero collisions** after conversion. No manual disambiguation is required.
-- Verified 2026-09-06: **exactly one** true case-only rename exists — `apps/admin/src/features/users/presentation/components/Pagination.tsx`.
+- Verified 2026-09-06 (corrected): **exactly two** true case-only renames exist, both in `apps/admin` —
+  `apps/admin/src/features/users/presentation/components/Pagination.tsx` and
+  `apps/admin/tests/Pagination.test.tsx`. The original count of one scanned only `src`
+  directories and missed the test file.
+- Relative importers of a case-only rename are **not** fixed by ts-morph's `SourceFile.move()`:
+  with `useCaseSensitiveFileNames === false` TypeScript treats the old and new path as the
+  same file and emits no edits. The codemod handles this itself (pass 1 records those
+  specifiers, pass 3 rewrites them); nothing manual is required, but do not assume
+  `pnpm typecheck` alone would have caught it on Windows.
 - Zero `.stories.tsx` and zero `.module.css` files repo-wide, so no sibling file must rename in lockstep.
+- The CLI refuses to run against a dirty working tree (non-zero exit). Pass 2 performs
+  irreversible `git mv` calls before the first `saveSync`, so `git checkout` is the only
+  recovery from a mid-run failure — it must be a complete undo. Commit or stash first,
+  including before a `--dry-run`.
 - Enforcement must not be switched on until every workspace is migrated, or CI reddens for the duration.
 - Identifier casing (variables, functions, constants, enum-like objects) is **out of scope**. Only file names change.
 
 ## Scope
 
-| Location | Files | To rename |
-|---|---|---|
-| `apps/*/src`, `packages/*/src` | 677 | 396 |
-| `apps/*/tests`, `apps/*/test`, `packages/*/tests`, `apps/*/e2e` | 390 | 298 |
-| **Total** | **1,067** | **694** |
+| Location                                                        | Files     | To rename |
+| --------------------------------------------------------------- | --------- | --------- |
+| `apps/*/src`, `packages/*/src`                                  | 677       | 396       |
+| `apps/*/tests`, `apps/*/test`, `packages/*/tests`, `apps/*/e2e` | 390       | 298       |
+| **Total**                                                       | **1,067** | **694**   |
 
 ---
 
@@ -40,10 +52,12 @@
 Produces the analysis layer: what would be renamed, and whether anything collides. Dependency-free and fully unit-testable, so the risky part (Task 3) can be reviewed against a known-good plan.
 
 **Files:**
+
 - Create: `scripts/lib/kebab-rename-plan.mjs`
 - Test: `scripts/__tests__/kebab-rename-plan.test.mjs`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces:
   - `toKebab(stem: string) => string`
@@ -94,7 +108,11 @@ describe("buildRenamePlan", () => {
   it("preserves compound extensions", () => {
     const { plan } = buildRenamePlan(["src/LoginForm.test.tsx"]);
     expect(plan).toEqual([
-      { from: "src/LoginForm.test.tsx", to: "src/login-form.test.tsx", caseOnly: false },
+      {
+        from: "src/LoginForm.test.tsx",
+        to: "src/login-form.test.tsx",
+        caseOnly: false,
+      },
     ]);
   });
 
@@ -119,9 +137,15 @@ describe("buildRenamePlan", () => {
   });
 
   it("reports collisions instead of silently overwriting", () => {
-    const { collisions } = buildRenamePlan(["src/userApi.ts", "src/UserAPI.ts"]);
+    const { collisions } = buildRenamePlan([
+      "src/userApi.ts",
+      "src/UserAPI.ts",
+    ]);
     expect(collisions).toEqual([
-      { target: "src/user-api.ts", sources: ["src/userApi.ts", "src/UserAPI.ts"] },
+      {
+        target: "src/user-api.ts",
+        sources: ["src/userApi.ts", "src/UserAPI.ts"],
+      },
     ]);
   });
 
@@ -217,10 +241,12 @@ git commit -m "feat(scripts): add kebab rename-plan builder with collision detec
 Eleven `import()` call sites exist in the repository. ts-morph rewrites static string specifiers reliably and computed ones not at all, so those must be found and reported before any file moves.
 
 **Files:**
+
 - Create: `scripts/lib/dynamic-import-audit.mjs`
 - Test: `scripts/__tests__/dynamic-import-audit.test.mjs`
 
 **Interfaces:**
+
 - Consumes: nothing from Task 1.
 - Produces: `auditDynamicImports(project: Project) => Array<{file: string, line: number, text: string, static: boolean}>` — takes a ts-morph `Project`, returns every `import()` call with whether its specifier is a plain string literal.
 
@@ -246,14 +272,16 @@ function projectWith(source) {
 
 describe("auditDynamicImports", () => {
   it("marks a string-literal specifier as static", () => {
-    const found = auditDynamicImports(projectWith(`const m = import("./login-form");`));
+    const found = auditDynamicImports(
+      projectWith(`const m = import("./login-form");`),
+    );
     expect(found).toHaveLength(1);
     expect(found[0].static).toBe(true);
   });
 
   it("marks a template-literal specifier as not static", () => {
     const found = auditDynamicImports(
-      projectWith("const n = 'x';\nconst m = import(`./${n}`);")
+      projectWith("const n = 'x';\nconst m = import(`./${n}`);"),
     );
     expect(found).toHaveLength(1);
     expect(found[0].static).toBe(false);
@@ -261,13 +289,15 @@ describe("auditDynamicImports", () => {
 
   it("marks an identifier specifier as not static", () => {
     const found = auditDynamicImports(
-      projectWith(`const p = "./x"; const m = import(p);`)
+      projectWith(`const p = "./x"; const m = import(p);`),
     );
     expect(found[0].static).toBe(false);
   });
 
   it("reports the line number", () => {
-    const found = auditDynamicImports(projectWith(`\n\nconst m = import("./x");`));
+    const found = auditDynamicImports(
+      projectWith(`\n\nconst m = import("./x");`),
+    );
     expect(found[0].line).toBe(3);
   });
 
@@ -300,7 +330,9 @@ export function auditDynamicImports(project) {
   const found = [];
 
   for (const sourceFile of project.getSourceFiles()) {
-    for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    for (const call of sourceFile.getDescendantsOfKind(
+      SyntaxKind.CallExpression,
+    )) {
       if (call.getExpression().getKind() !== SyntaxKind.ImportKeyword) continue;
 
       const [argument] = call.getArguments();
@@ -336,10 +368,12 @@ git commit -m "feat(scripts): add dynamic-import auditor for the kebab migration
 Performs the moves and rewrites imports. `SourceFile.move()` in ts-morph updates every referencing import specifier across the module graph, including barrel `index.ts` re-exports and `@/` path aliases resolved through the tsconfig.
 
 **Files:**
+
 - Create: `scripts/lib/kebab-rename-engine.mjs`
 - Test: `scripts/__tests__/kebab-rename-engine.test.mjs`
 
 **Interfaces:**
+
 - Consumes: `buildRenamePlan` from Task 1 (`scripts/lib/kebab-rename-plan.mjs`).
 - Produces: `applyRenames(project: Project, plan: Array<{from, to, caseOnly}>, options?: {gitMove?: (from: string, to: string) => void}) => void` — moves each file in the project and saves. When an entry has `caseOnly: true` and `options.gitMove` is supplied, the move is delegated to it so git sees the rename on a case-insensitive filesystem.
 
@@ -354,7 +388,8 @@ import { applyRenames } from "../lib/kebab-rename-engine.mjs";
 
 function project(files) {
   const p = new Project({ useInMemoryFileSystem: true });
-  for (const [name, text] of Object.entries(files)) p.createSourceFile(name, text);
+  for (const [name, text] of Object.entries(files))
+    p.createSourceFile(name, text);
   return p;
 }
 
@@ -368,8 +403,9 @@ describe("applyRenames", () => {
 
     expect(p.getSourceFile("/src/login-form.tsx")).toBeDefined();
     expect(p.getSourceFile("/src/LoginForm.tsx")).toBeUndefined();
-    expect(p.getSourceFileOrThrow("/src/page.tsx").getFullText())
-      .toContain(`from "./login-form"`);
+    expect(p.getSourceFileOrThrow("/src/page.tsx").getFullText()).toContain(
+      `from "./login-form"`,
+    );
   });
 
   it("rewrites a barrel re-export", () => {
@@ -379,8 +415,9 @@ describe("applyRenames", () => {
     });
     applyRenames(p, buildRenamePlan(["/src/MSWProvider.tsx"]).plan);
 
-    expect(p.getSourceFileOrThrow("/src/index.ts").getFullText())
-      .toContain(`from "./msw-provider"`);
+    expect(p.getSourceFileOrThrow("/src/index.ts").getFullText()).toContain(
+      `from "./msw-provider"`,
+    );
   });
 
   it("rewrites a static dynamic-import specifier", () => {
@@ -390,22 +427,32 @@ describe("applyRenames", () => {
     });
     applyRenames(p, buildRenamePlan(["/src/StatusCard.tsx"]).plan);
 
-    expect(p.getSourceFileOrThrow("/src/lazy.ts").getFullText())
-      .toContain(`import("./status-card")`);
+    expect(p.getSourceFileOrThrow("/src/lazy.ts").getFullText()).toContain(
+      `import("./status-card")`,
+    );
   });
 
   it("delegates a case-only rename to gitMove", () => {
     const gitMove = vi.fn();
-    const p = project({ "/src/Pagination.tsx": `export const Pagination = () => null;` });
+    const p = project({
+      "/src/Pagination.tsx": `export const Pagination = () => null;`,
+    });
     applyRenames(p, buildRenamePlan(["/src/Pagination.tsx"]).plan, { gitMove });
 
-    expect(gitMove).toHaveBeenCalledWith("/src/Pagination.tsx", "/src/pagination.tsx");
+    expect(gitMove).toHaveBeenCalledWith(
+      "/src/Pagination.tsx",
+      "/src/pagination.tsx",
+    );
   });
 
   it("does not delegate a structural rename to gitMove", () => {
     const gitMove = vi.fn();
-    const p = project({ "/src/MSWProvider.tsx": `export const MSWProvider = () => null;` });
-    applyRenames(p, buildRenamePlan(["/src/MSWProvider.tsx"]).plan, { gitMove });
+    const p = project({
+      "/src/MSWProvider.tsx": `export const MSWProvider = () => null;`,
+    });
+    applyRenames(p, buildRenamePlan(["/src/MSWProvider.tsx"]).plan, {
+      gitMove,
+    });
 
     expect(gitMove).not.toHaveBeenCalled();
   });
@@ -415,13 +462,20 @@ describe("applyRenames", () => {
       useInMemoryFileSystem: true,
       compilerOptions: { baseUrl: "/", paths: { "@/*": ["src/*"] } },
     });
-    p.createSourceFile("/src/components/StatusCard.tsx", `export const StatusCard = () => null;`);
-    p.createSourceFile("/src/app/page.tsx", `import { StatusCard } from "@/components/StatusCard";\nexport default StatusCard;`);
+    p.createSourceFile(
+      "/src/components/StatusCard.tsx",
+      `export const StatusCard = () => null;`,
+    );
+    p.createSourceFile(
+      "/src/app/page.tsx",
+      `import { StatusCard } from "@/components/StatusCard";\nexport default StatusCard;`,
+    );
 
     applyRenames(p, buildRenamePlan(["/src/components/StatusCard.tsx"]).plan);
 
-    expect(p.getSourceFileOrThrow("/src/app/page.tsx").getFullText())
-      .toContain(`from "@/components/status-card"`);
+    expect(p.getSourceFileOrThrow("/src/app/page.tsx").getFullText()).toContain(
+      `from "@/components/status-card"`,
+    );
   });
 
   it("rewrites a test file importing across the src/tests boundary", () => {
@@ -429,17 +483,24 @@ describe("applyRenames", () => {
       "/src/LoginForm.tsx": `export const LoginForm = () => null;`,
       "/tests/LoginForm.test.tsx": `import { LoginForm } from "../src/LoginForm";\nit("renders", () => LoginForm());`,
     });
-    applyRenames(p, buildRenamePlan(["/src/LoginForm.tsx", "/tests/LoginForm.test.tsx"]).plan);
+    applyRenames(
+      p,
+      buildRenamePlan(["/src/LoginForm.tsx", "/tests/LoginForm.test.tsx"]).plan,
+    );
 
     expect(p.getSourceFile("/tests/login-form.test.tsx")).toBeDefined();
-    expect(p.getSourceFileOrThrow("/tests/login-form.test.tsx").getFullText())
-      .toContain(`from "../src/login-form"`);
+    expect(
+      p.getSourceFileOrThrow("/tests/login-form.test.tsx").getFullText(),
+    ).toContain(`from "../src/login-form"`);
   });
 
   it("throws when a planned file is not part of the project", () => {
     const p = project({ "/src/a.ts": `export const a = 1;` });
-    expect(() => applyRenames(p, [{ from: "/src/Ghost.ts", to: "/src/ghost.ts", caseOnly: false }]))
-      .toThrow("not in project: /src/Ghost.ts");
+    expect(() =>
+      applyRenames(p, [
+        { from: "/src/Ghost.ts", to: "/src/ghost.ts", caseOnly: false },
+      ]),
+    ).toThrow("not in project: /src/Ghost.ts");
   });
 });
 ```
@@ -505,11 +566,13 @@ git commit -m "feat(scripts): add ts-morph rename engine for the kebab migration
 Wires Tasks 1–3 into one command that operates on a single workspace, with a dry run that prints the plan and refuses to proceed on a collision.
 
 **Files:**
+
 - Create: `scripts/codemod-kebab-filenames.mjs`
 - Modify: `package.json` (add the `codemod:kebab` script)
 - Test: `scripts/__tests__/codemod-kebab-filenames.test.mjs`
 
 **Interfaces:**
+
 - Consumes: `buildRenamePlan` (Task 1), `auditDynamicImports` (Task 2), `applyRenames` and `gitMoveCaseOnly` (Task 3).
 - Produces: `collectFiles(workspaceDir: string, fs?: typeof import("node:fs")) => string[]` — every `.ts`/`.tsx` path under a workspace's `src`, `tests`, `test`, and `e2e` directories, excluding `node_modules`, `.next`, and any `generated` directory.
 
@@ -544,7 +607,9 @@ afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
 describe("collectFiles", () => {
   it("collects ts and tsx under src, tests and e2e", () => {
-    const found = collectFiles(root).map((f) => path.relative(root, f).split(path.sep).join("/"));
+    const found = collectFiles(root).map((f) =>
+      path.relative(root, f).split(path.sep).join("/"),
+    );
     expect(found.sort()).toEqual([
       "e2e/checkout.spec.ts",
       "src/LoginForm.tsx",
@@ -595,7 +660,9 @@ export function collectFiles(workspaceDirectory, fileSystem = fs) {
   const files = [];
 
   const walk = (directory) => {
-    for (const entry of fileSystem.readdirSync(directory, { withFileTypes: true })) {
+    for (const entry of fileSystem.readdirSync(directory, {
+      withFileTypes: true,
+    })) {
       const full = path.join(directory, entry.name);
       if (entry.isDirectory()) {
         if (!EXCLUDED.has(entry.name)) walk(full);
@@ -622,7 +689,9 @@ function main() {
   });
 
   if (!values.workspace) {
-    console.error("usage: codemod-kebab-filenames.mjs --workspace <dir> [--dry-run]");
+    console.error(
+      "usage: codemod-kebab-filenames.mjs --workspace <dir> [--dry-run]",
+    );
     process.exit(2);
   }
 
@@ -635,7 +704,7 @@ function main() {
 
   const files = collectFiles(workspace);
   const { plan, collisions } = buildRenamePlan(
-    files.map((f) => f.split(path.sep).join("/"))
+    files.map((f) => f.split(path.sep).join("/")),
   );
 
   if (collisions.length > 0) {
@@ -648,9 +717,13 @@ function main() {
 
   const project = new Project({ tsConfigFilePath });
 
-  const computed = auditDynamicImports(project).filter((entry) => !entry.static);
+  const computed = auditDynamicImports(project).filter(
+    (entry) => !entry.static,
+  );
   if (computed.length > 0) {
-    console.warn(`${computed.length} computed import() call(s) need manual review:`);
+    console.warn(
+      `${computed.length} computed import() call(s) need manual review:`,
+    );
     for (const entry of computed) {
       console.warn(`  ${entry.file}:${entry.line}  ${entry.text}`);
     }
@@ -716,9 +789,11 @@ git commit -m "feat(scripts): add kebab-filenames codemod CLI"
 The smallest workspace (3 files), migrated on its own so the codemod is proven end-to-end against real code before it touches anything larger. This task's review gate is the decision point for the whole migration.
 
 **Files:**
+
 - Modify: 3 files in `packages/api/src` (renamed), plus any file importing them.
 
 **Interfaces:**
+
 - Consumes: `pnpm codemod:kebab` from Task 4.
 - Produces: nothing consumed by later tasks — this is a proving run.
 
@@ -789,26 +864,28 @@ Do not begin Task 6 until this PR is reviewed and merged. If the codemod produce
 The same procedure per workspace, one PR each, ordered smallest blast radius first so the largest workspaces run last against the most-proven codemod.
 
 **Files:**
+
 - Modify: source, test, and e2e files across the ten remaining workspaces.
 
 **Interfaces:**
+
 - Consumes: `pnpm codemod:kebab` (Task 4), the procedure validated in Task 5.
 - Produces: a fully compliant repository, which Task 7 then locks down.
 
 For **each** workspace in this order, run the full step sequence below before moving to the next:
 
-| # | Workspace | `src` renames |
-|---|---|---|
-| 1 | `packages/ui` | 10 |
-| 2 | `packages/auth` | 10 |
-| 3 | `packages/app-components` | 12 |
-| 4 | `apps/landing` | 11 |
-| 5 | `apps/auth` | 13 |
-| 6 | `packages/shared` | 29 |
-| 7 | `apps/store` | 58 |
-| 8 | `apps/studio` | 64 |
-| 9 | `apps/admin` | 89 |
-| 10 | `apps/payments` | 97 |
+| #   | Workspace                 | `src` renames |
+| --- | ------------------------- | ------------- |
+| 1   | `packages/ui`             | 10            |
+| 2   | `packages/auth`           | 10            |
+| 3   | `packages/app-components` | 12            |
+| 4   | `apps/landing`            | 11            |
+| 5   | `apps/auth`               | 13            |
+| 6   | `packages/shared`         | 29            |
+| 7   | `apps/store`              | 58            |
+| 8   | `apps/studio`             | 64            |
+| 9   | `apps/admin`              | 89            |
+| 10  | `apps/payments`           | 97            |
 
 Counts are `src` only; each run also covers that workspace's `tests`, `test`, and `e2e` directories, which hold a further 298 renames in total.
 
@@ -826,9 +903,24 @@ git checkout -b refactor/kebab-<slug>
 Run: `pnpm codemod:kebab --workspace <workspace> --dry-run`
 Expected: a rename list, zero collisions. Stop and investigate if any collision appears — none exist as of 2026-09-06, so one means the tree has changed.
 
-- [ ] **Step 3: Review any computed-import warnings**
+- [ ] **Step 3: Review every warning the dry run prints**
 
-If the dry run reports computed `import()` calls, open each at the reported line and confirm whether the specifier resolves to a renamed file. Note each in the PR description.
+The dry run prints four things that need a human, none of which `pnpm typecheck` can catch:
+
+1. **computed `import()` calls** — a template literal or identifier specifier. Open each at
+   the reported line and confirm whether it resolves to a renamed file.
+2. **non-relative dynamic `import()` specifiers** — path-aliased dynamic imports and
+   `import("...")` type nodes. The codemod does not rewrite these (resolving them needs
+   guesswork; `MSWProvider.tsx` exists in five workspaces). Twelve aliased dynamic imports
+   and one aliased import-type node exist repo-wide as of 2026-09-06.
+3. **`vi.mock` / `require` specifiers that would be rewritten** — a count. Sanity-check it
+   against `grep -rc "vi\.mock" <workspace>`.
+4. **`vi.mock` specifiers needing manual attention** — every one the codemod could not
+   resolve. These are the dangerous ones: vitest treats a mock path that resolves to
+   nothing as a **silent no-op**, so the suite stays green while exercising the real module.
+   There is no compiler backstop — the argument is a `string`. Fix each by hand.
+
+Note each in the PR description.
 
 - [ ] **Step 4: Apply**
 
@@ -839,13 +931,15 @@ Run: `pnpm codemod:kebab --workspace <workspace>`
 Run: `git status --porcelain | grep -c "^R"`
 Expected: a count matching the rename total from Step 2.
 
-For `apps/admin` specifically, confirm the one case-only rename landed:
+For `apps/admin` specifically, confirm **both** case-only renames landed:
 
 ```bash
 git status --porcelain | grep -i pagination
 ```
 
-Expected: an `R` entry showing `Pagination.tsx -> pagination.tsx`. An empty result means the two-step `git mv` failed and must be fixed before committing.
+Expected: two `R` entries — `src/features/users/presentation/components/Pagination.tsx -> .../pagination.tsx`
+and `tests/Pagination.test.tsx -> tests/pagination.test.tsx`. Fewer than two means the two-step
+`git mv` failed for one of them and must be fixed before committing.
 
 - [ ] **Step 6: Grep for non-TypeScript path references**
 
@@ -856,6 +950,62 @@ grep -rn "<workspace>" --include="*.json" --include="*.mjs" --include="*.yml" \
 ```
 
 Expected: no results. Any hit is a hardcoded path to a renamed file in a config, Docker file, or package script.
+
+- [ ] **Step 6a: Fix stale config globs the codemod cannot see**
+
+The codemod only rewrites TypeScript module specifiers. Two config files match source
+files by **path glob**, and a glob that no longer matches fails **silently** — coverage
+exclusions lapse (thresholds may then fail, or worse, quietly pass on newly-included
+files) and per-file lint exemptions vanish, re-enabling rules that were deliberately
+switched off.
+
+1. `apps/{studio,payments,admin,auth,store}/vitest.config.mts` — the `coverage.exclude`
+   arrays reference roughly 30 PascalCase/camelCase paths, e.g.
+   `**/auth/application/hooks/useSupabaseAuth.ts`,
+   `**/auth/presentation/components/ProtectedRoute.tsx`,
+   `**/payment-methods/presentation/components/BlockEditor.tsx`,
+   `**/shared/infrastructure/receiptActions.ts`, `**/domain/searchParams.ts`.
+2. `eslint.config.mjs` — per-file overrides keyed on a path, notably
+   `packages/shared/src/components/ThemeScript.tsx` (line ~1597),
+   `${APP_SRC}/shared/infrastructure/providers/MSWProvider.tsx` (line ~1611),
+   `${APP_SRC}/shared/application/utils/exportUtils.ts` (line ~1002), plus the
+   `**/…/MSWProvider.tsx`, `**/…/exportUtils.ts` and `**/…/chartColors.ts` entries
+   around line 1122.
+
+Find every stale glob for the workspace being migrated by taking the old stem of each
+rename git recorded and grepping the config files for it:
+
+```bash
+git status --porcelain |
+  sed -n 's#^R[ M]* \(.*\) -> .*#\1#p' |
+  xargs -n1 basename | cut -d. -f1 | sort -u |
+  while read -r stem; do
+    grep -rn "/$stem\." --include="*.mts" --include="*.mjs" --include="*.json" \
+      --exclude-dir=node_modules apps packages eslint.config.mjs
+  done
+```
+
+Update every hit by hand in the same PR. Expected after the edits: no hit refers to a
+name that no longer exists on disk.
+
+- [ ] **Step 6b (`packages/shared` only): update the `exports` map in `packages/shared/package.json`**
+
+`packages/shared/package.json` hard-codes five subpath targets the codemod renames, and the
+codemod never touches `package.json`:
+
+| Subpath key                     | Current target                         | New target                                |
+| ------------------------------- | -------------------------------------- | ----------------------------------------- |
+| `./app-root-layout`             | `./src/components/AppRootLayout.tsx`   | `./src/components/app-root-layout.tsx`    |
+| `./i18n/createAppI18n`          | `./src/i18n/createAppI18n.ts`          | `./src/i18n/create-app-i18n.ts`           |
+| `./i18n/createAppRouting`       | `./src/i18n/createAppRouting.ts`       | `./src/i18n/create-app-routing.ts`        |
+| `./i18n/createAppRequestConfig` | `./src/i18n/createAppRequestConfig.ts` | `./src/i18n/create-app-request-config.ts` |
+| `./i18n/createIntlProxy`        | `./src/i18n/createIntlProxy.ts`        | `./src/i18n/create-intl-proxy.ts`         |
+
+This **must** be done by hand in the `packages/shared` PR. Node resolves these paths
+case-insensitively on Windows, so a local `pnpm build` will keep passing while Linux CI
+and every Docker image break. Change only the target paths; leaving the subpath **keys**
+alone keeps every existing `shared/i18n/createAppI18n` importer resolving through the
+exports map.
 
 - [ ] **Step 7: Verify**
 
@@ -890,6 +1040,38 @@ gh pr create --base develop \
 
 Sequential merges keep each diff reviewable against a clean `develop` and avoid rename-versus-rename conflicts between open branches.
 
+#### Expected cross-workspace breakage in the `packages/shared` PR
+
+The codemod builds its `ts-morph` project from **one** workspace's `tsconfig.json`, so deep
+imports living in _other_ workspaces are invisible to it and are never rewritten. Measured
+2026-09-06: **44** such sites, all of them pointing into `packages/shared`, all from
+`apps/*/src`.
+
+| Target (after rename)                                                    | Sites  |
+| ------------------------------------------------------------------------ | ------ |
+| `createIntlProxy` → `create-intl-proxy`                                  | 7      |
+| `AppRootLayout` → `app-root-layout` (via the `exports` map, see Step 6b) | 7      |
+| `appUrls` → `app-urls`                                                   | 7      |
+| `createAppI18n` → `create-app-i18n`                                      | 7      |
+| `createAppRequestConfig` → `create-app-request-config`                   | 7      |
+| `createAppRouting` → `create-app-routing`                                | 7      |
+| `receiptPath` → `receipt-path`                                           | 2      |
+| **Total**                                                                | **44** |
+
+The earlier figure of 37 omitted the seven `shared/app-root-layout` sites, which resolve
+through `packages/shared/package.json`'s `exports` map rather than a tsconfig path alias.
+
+This is **not** silent: Step 7's repo-wide `pnpm typecheck` enumerates every broken site by
+file and line. Fix them in the same PR. `packages/ui`, `packages/api` and `packages/auth`
+are unaffected — their cross-package imports are either barrel-only or already kebab-case.
+
+#### Cross-app relative import
+
+`apps/admin/e2e/reports.spec.ts` imports `../../auth/e2e/helpers/receiptFixtures`, which
+lives in the **`apps/auth`** rename plan, not `apps/admin`'s. Whichever of the two PRs runs
+second must fix this by hand — the `apps/auth` run cannot see the admin importer, and the
+`apps/admin` run cannot see the auth file. `pnpm typecheck` catches it.
+
 ---
 
 ### Task 7: Enforcement
@@ -897,11 +1079,13 @@ Sequential merges keep each diff reviewable against a clean `develop` and avoid 
 Lands only after all eleven workspaces are merged and the repository is at zero violations. Turning any of this on earlier reddens CI for the duration of the migration.
 
 **Files:**
+
 - Modify: `eslint.config.mjs:916`
 - Modify: `.ls-lint.yml`
 - Modify: `.claude/rules/naming-conventions.md`
 
 **Interfaces:**
+
 - Consumes: a fully migrated repository (Tasks 5–6).
 - Produces: nothing consumed by later tasks. This is the terminal task of Phase 0.
 
@@ -1016,7 +1200,7 @@ In `.claude/rules/naming-conventions.md`, replace the `### Files` table (lines 1
 All files are **kebab-case**, without exception.
 
 | Type             | Example                  |
-|------------------|--------------------------|
+| ---------------- | ------------------------ |
 | React Components | `login-form.tsx`         |
 | Hooks            | `use-auth.ts`            |
 | Utilities        | `format-date.ts`         |

@@ -3,6 +3,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const CODEMOD_SCRIPT = fileURLToPath(
+  new URL("../codemod-kebab-filenames.mjs", import.meta.url),
+);
 
 let fixtureDir;
 
@@ -13,95 +18,127 @@ afterEach(() => {
   }
 });
 
-describe("codemod CLI integration", () => {
-  it("renames files and updates imports without creating nested directories", () => {
-    // Create temp fixture
-    fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "kebab-integration-"));
-
-    // Write tsconfig.json
-    fs.writeFileSync(
-      path.join(fixtureDir, "tsconfig.json"),
-      JSON.stringify({
-        compilerOptions: {
-          baseUrl: ".",
-          paths: {
-            "@/*": ["./src/*"],
-          },
-        },
-      }),
-    );
-
-    // Create directory structure
-    fs.mkdirSync(path.join(fixtureDir, "src", "components"), {
-      recursive: true,
-    });
-    fs.mkdirSync(path.join(fixtureDir, "src", "app"), { recursive: true });
-
-    // Write source files
-    fs.writeFileSync(
-      path.join(fixtureDir, "src", "components", "StatusCard.tsx"),
-      "export function StatusCard() { return null; }",
-    );
-
-    fs.writeFileSync(
-      path.join(fixtureDir, "src", "index.ts"),
-      'export { StatusCard } from "./components/StatusCard";',
-    );
-
-    fs.writeFileSync(
-      path.join(fixtureDir, "src", "app", "page.tsx"),
-      'import { StatusCard } from "@/components/StatusCard";\nexport default StatusCard;',
-    );
-
-    // Run the CLI as a child process from a different directory
-    const runDir = fs.mkdtempSync(path.join(os.tmpdir(), "kebab-run-"));
-    try {
-      const codemodScript = path.resolve(
-        ".",
-        "scripts",
-        "codemod-kebab-filenames.mjs",
-      );
-
-      execFileSync("node", [codemodScript, "--workspace", fixtureDir], {
-        cwd: runDir,
-        stdio: "pipe",
-      });
-    } finally {
-      fs.rmSync(runDir, { recursive: true, force: true });
+/** Every file under `root`, as sorted POSIX paths relative to it. */
+function listFiles(root) {
+  const out = [];
+  const walk = (directory, prefix) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) walk(path.join(directory, entry.name), relative);
+      else out.push(relative);
     }
+  };
+  walk(root, "");
+  return out.sort();
+}
 
-    // Verify: StatusCard was renamed
-    expect(
-      fs.existsSync(
-        path.join(fixtureDir, "src", "components", "status-card.tsx"),
-      ),
-    ).toBe(true);
-    expect(
-      fs.existsSync(
-        path.join(fixtureDir, "src", "components", "StatusCard.tsx"),
-      ),
-    ).toBe(false);
+function writeFixture() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "kebab-integration-"));
 
-    // Verify: no nested directory was created
-    expect(
-      fs.existsSync(path.join(fixtureDir, "src", "components", "src")),
-    ).toBe(false);
-    expect(fs.existsSync(path.join(fixtureDir, "src", "src"))).toBe(false);
+  // `include` deliberately covers only `src`, exactly like every packages/*
+  // tsconfig in this repo. The CLI must add the `tests` files to the project
+  // itself or the rename aborts with "not in project".
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: { baseUrl: ".", paths: { "@/*": ["./src/*"] } },
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+    }),
+  );
 
-    // Verify: relative re-export was updated
-    const indexContent = fs.readFileSync(
-      path.join(fixtureDir, "src", "index.ts"),
-      "utf-8",
+  fs.mkdirSync(path.join(root, "src", "components"), { recursive: true });
+  fs.mkdirSync(path.join(root, "src", "app"), { recursive: true });
+  fs.mkdirSync(path.join(root, "tests"), { recursive: true });
+
+  fs.writeFileSync(
+    path.join(root, "src", "components", "StatusCard.tsx"),
+    "export function StatusCard() { return null; }",
+  );
+  fs.writeFileSync(
+    path.join(root, "src", "index.ts"),
+    'export { StatusCard } from "./components/StatusCard";',
+  );
+  fs.writeFileSync(
+    path.join(root, "src", "app", "page.tsx"),
+    'import { StatusCard } from "@/components/StatusCard";\nexport default StatusCard;',
+  );
+  fs.writeFileSync(
+    path.join(root, "tests", "StatusCard.test.tsx"),
+    [
+      'import { vi } from "vitest";',
+      'import { StatusCard } from "../src/components/StatusCard";',
+      'vi.mock("@/components/StatusCard");',
+      'vi.mock("../src/components/StatusCard");',
+      'it("renders", () => StatusCard());',
+    ].join("\n"),
+  );
+
+  return root;
+}
+
+function runCodemod(workspace, extraArgs = []) {
+  // Run from a directory that is neither the repo nor the fixture, so any
+  // cwd-relative path handling fails loudly.
+  const runDir = fs.mkdtempSync(path.join(os.tmpdir(), "kebab-run-"));
+  try {
+    return execFileSync(
+      "node",
+      [CODEMOD_SCRIPT, "--workspace", workspace, ...extraArgs],
+      { cwd: runDir, stdio: "pipe", encoding: "utf8" },
     );
-    expect(indexContent).toContain("./components/status-card");
-    expect(indexContent).not.toContain("./components/StatusCard");
+  } finally {
+    fs.rmSync(runDir, { recursive: true, force: true });
+  }
+}
 
-    // Verify: alias import was updated
-    const pageContent = fs.readFileSync(
-      path.join(fixtureDir, "src", "app", "page.tsx"),
-      "utf-8",
+const read = (...segments) =>
+  fs.readFileSync(path.join(fixtureDir, ...segments), "utf-8");
+
+describe("codemod CLI integration", () => {
+  it("renames files and updates every kind of specifier", () => {
+    fixtureDir = writeFixture();
+
+    const output = runCodemod(fixtureDir);
+
+    // The tree ends up in exactly this shape — no file left behind at its old
+    // name, and no directory nested under a source directory.
+    expect(listFiles(fixtureDir)).toEqual([
+      "src/app/page.tsx",
+      "src/components/status-card.tsx",
+      "src/index.ts",
+      "tests/status-card.test.tsx",
+      "tsconfig.json",
+    ]);
+
+    // Relative re-export, rewritten by ts-morph's move.
+    expect(read("src", "index.ts")).toContain("./components/status-card");
+
+    // Alias import, rewritten by pass 3.
+    expect(read("src", "app", "page.tsx")).toContain(
+      "@/components/status-card",
     );
-    expect(pageContent).toContain("@/components/status-card");
-    expect(pageContent).not.toContain("@/components/StatusCard");
+
+    // The test file lives outside the tsconfig `include`, so this only passes
+    // because the CLI adds collected files to the project.
+    const testFile = read("tests", "status-card.test.tsx");
+    expect(testFile).toContain('from "../src/components/status-card"');
+    expect(testFile).toContain('vi.mock("@/components/status-card")');
+    expect(testFile).toContain('vi.mock("../src/components/status-card")');
+    expect(testFile).not.toContain("components/StatusCard");
+
+    expect(output).toContain("rewrote 2 vi.mock/require specifier(s)");
+  });
+
+  it("previews the mock rewrites in a dry run without writing anything", () => {
+    fixtureDir = writeFixture();
+    const before = listFiles(fixtureDir).map((f) => [f, read(f)]);
+
+    const output = runCodemod(fixtureDir, ["--dry-run"]);
+
+    expect(output).toContain(
+      "2 vi.mock/require specifier(s) would be rewritten",
+    );
+    expect(output).toContain("dry run — nothing written");
+    expect(before.map(([file]) => [file, read(file)])).toEqual(before);
   });
 });
