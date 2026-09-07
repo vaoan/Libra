@@ -56,6 +56,22 @@ describe("applyRenames", () => {
     );
   });
 
+  it("leaves a relative dynamic import to ts-morph, without double-handling it", () => {
+    const p = project({
+      "/src/StatusCard.tsx": `export const StatusCard = () => null;`,
+      "/src/lazy.ts": `export const Lazy = () => import("./StatusCard");`,
+    });
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/StatusCard.tsx"]).plan,
+    );
+
+    expect(report.dynamicRewrites).toBe(0);
+    expect(p.getSourceFileOrThrow("/src/lazy.ts").getFullText()).toContain(
+      `import("./status-card")`,
+    );
+  });
+
   it("delegates a case-only rename to gitMove", () => {
     const gitMove = vi.fn();
     const p = project({
@@ -392,6 +408,173 @@ describe("last-segment guard", () => {
     // to nothing.
     expect(p.getSourceFileOrThrow("/app/page.tsx").getFullText()).toContain(
       `from "shared/app-root-layout"`,
+    );
+  });
+
+  it("reports a refused mock specifier once, not under two headings", () => {
+    const p = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: {
+        baseUrl: "/",
+        paths: { "shared/app-root-layout": ["src/AppRootLayout"] },
+      },
+    });
+    p.createSourceFile(
+      "/src/AppRootLayout.tsx",
+      `export const AppRootLayout = () => null;`,
+    );
+    p.createSourceFile(
+      "/tests/layout.test.ts",
+      `import { vi } from "vitest";\nvi.mock("shared/app-root-layout");`,
+    );
+
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/AppRootLayout.tsx"]).plan,
+    );
+
+    expect(report.specifierMismatches).toHaveLength(1);
+    expect(report.mockManual).toEqual([]);
+  });
+});
+
+describe("report counters", () => {
+  it("counts only import specifiers it actually changed", () => {
+    const p = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: { baseUrl: "/", paths: { "@/*": ["src/*"] } },
+    });
+    p.createSourceFile(
+      "/src/components/StatusCard.tsx",
+      `export const StatusCard = () => null;`,
+    );
+    p.createSourceFile(
+      "/src/components/Button.tsx",
+      `export const Button = () => null;`,
+    );
+    p.createSourceFile(
+      "/src/app/page.tsx",
+      `import { StatusCard } from "@/components/StatusCard";\nimport { Button } from "@/components/Button";\nexport default () => (StatusCard(), Button());`,
+    );
+
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/components/StatusCard.tsx"]).plan,
+    );
+
+    // One planned rename, one aliased importer of it — and nothing else.
+    expect(report.importRewrites).toBe(1);
+  });
+});
+
+describe("aliased dynamic import() and import-type rewriting", () => {
+  const aliasProject = () =>
+    new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: { baseUrl: "/", paths: { "@/*": ["src/*"] } },
+    });
+
+  it("rewrites an aliased dynamic import()", () => {
+    const p = aliasProject();
+    p.createSourceFile(
+      "/src/shared/auditLog.ts",
+      `export const insertAuditLog = () => null;`,
+    );
+    p.createSourceFile(
+      "/src/app/route.ts",
+      `export const load = async () => await import("@/shared/auditLog");`,
+    );
+
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/shared/auditLog.ts"]).plan,
+    );
+
+    expect(report.dynamicRewrites).toBe(1);
+    expect(p.getSourceFileOrThrow("/src/app/route.ts").getFullText()).toContain(
+      `import("@/shared/audit-log")`,
+    );
+  });
+
+  it("rewrites an aliased typeof import(...) type node", () => {
+    const p = aliasProject();
+    p.createSourceFile(
+      "/src/shared/auditLog.ts",
+      `export const insertAuditLog = () => null;`,
+    );
+    p.createSourceFile(
+      "/tests/audit.test.ts",
+      `type Insert = typeof import("@/shared/auditLog").insertAuditLog;\nexport type { Insert };`,
+    );
+
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/shared/auditLog.ts"]).plan,
+    );
+
+    expect(report.dynamicRewrites).toBe(1);
+    expect(
+      p.getSourceFileOrThrow("/tests/audit.test.ts").getFullText(),
+    ).toContain(`typeof import("@/shared/audit-log").insertAuditLog`);
+  });
+
+  it("leaves an aliased dynamic import of a NON-renamed file untouched", () => {
+    const p = aliasProject();
+    p.createSourceFile(
+      "/src/shared/utils.ts",
+      `export const noop = () => null;`,
+    );
+    p.createSourceFile(
+      "/src/shared/auditLog.ts",
+      `export const insertAuditLog = () => null;`,
+    );
+    p.createSourceFile(
+      "/src/app/route.ts",
+      `export const load = async () => await import("@/shared/utils");`,
+    );
+
+    // Only auditLog is planned; utils is already kebab-case.
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/shared/auditLog.ts"]).plan,
+    );
+
+    expect(report.dynamicRewrites).toBe(0);
+    expect(report.specifierMismatches).toEqual([]);
+    expect(p.getSourceFileOrThrow("/src/app/route.ts").getFullText()).toContain(
+      `import("@/shared/utils")`,
+    );
+  });
+
+  it("reports, and does not rewrite, a dynamic import whose last segment does not name the file", () => {
+    const p = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: {
+        baseUrl: "/",
+        paths: { "shared/app-root-layout": ["src/AppRootLayout"] },
+      },
+    });
+    p.createSourceFile(
+      "/src/AppRootLayout.tsx",
+      `export const AppRootLayout = () => null;`,
+    );
+    p.createSourceFile(
+      "/src/app/route.ts",
+      `export const load = async () => await import("shared/app-root-layout");`,
+    );
+
+    const report = applyRenames(
+      p,
+      buildRenamePlan(["/src/AppRootLayout.tsx"]).plan,
+    );
+
+    expect(report.dynamicRewrites).toBe(0);
+    expect(report.specifierMismatches).toHaveLength(1);
+    expect(report.specifierMismatches[0].specifier).toBe(
+      "shared/app-root-layout",
+    );
+    expect(p.getSourceFileOrThrow("/src/app/route.ts").getFullText()).toContain(
+      `import("shared/app-root-layout")`,
     );
   });
 });

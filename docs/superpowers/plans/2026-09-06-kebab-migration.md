@@ -31,9 +31,14 @@
   `pnpm typecheck` alone would have caught it on Windows.
 - Zero `.stories.tsx` and zero `.module.css` files repo-wide, so no sibling file must rename in lockstep.
 - The CLI refuses to apply against a dirty working tree (non-zero exit). Pass 2 performs
-  irreversible `git mv` calls before the first `saveSync`, so `git checkout` is the only
-  recovery from a mid-run failure — it must be a complete undo. Commit or stash first.
-  `--dry-run` writes nothing, so it warns about a dirty tree and continues.
+  irreversible `git mv` calls before the first `saveSync`, so
+  `git reset --hard HEAD && git clean -fd` is the only recovery from a mid-run failure —
+  it must be a complete undo. Commit or stash first. `--dry-run` writes nothing, so it
+  warns about a dirty tree and continues. `git checkout` is **not** a recovery: `git mv`
+  _stages_ the rename, and pass 2's new kebab-named files are untracked, so it reverts
+  neither. Warning: a case-only rename may still need a manual two-step rename back
+  (through a temporary name) — with `core.ignorecase` git cannot see a case-only
+  difference and reports a clean tree while the file is still renamed on disk.
 - Enforcement must not be switched on until every workspace is migrated, or CI reddens for the duration.
 - Identifier casing (variables, functions, constants, enum-like objects) is **out of scope**. Only file names change.
 
@@ -910,9 +915,11 @@ The dry run prints four things that need a human, none of which `pnpm typecheck`
 1. **computed `import()` calls** — a template literal or identifier specifier. Open each at
    the reported line and confirm whether it resolves to a renamed file.
 2. **non-relative dynamic `import()` specifiers** — path-aliased dynamic imports and
-   `import("...")` type nodes. The codemod does not rewrite these (resolving them needs
-   guesswork; `MSWProvider.tsx` exists in five workspaces). Twelve aliased dynamic imports
-   and one aliased import-type node exist repo-wide as of 2026-09-06.
+   `import("...")` type nodes. The codemod now resolves and rewrites these, using the same
+   resolver and last-segment guard as the `vi.mock` rewrites. Sixteen such sites resolve
+   into a rename plan repo-wide as of 2026-09-06 (`apps/admin` 7, `apps/payments` 3,
+   `apps/store` 2, `apps/studio` 1, `packages/shared` 3); the dry run reports only those
+   plus any the guard refuses, not every non-relative `import()` in the workspace.
 3. **`vi.mock` / `require` specifiers that would be rewritten** — a count. Sanity-check it
    against `grep -rc "vi\.mock" <workspace>`.
 4. **`vi.mock` specifiers needing manual attention** — every one the codemod could not
@@ -925,6 +932,21 @@ Note each in the PR description.
 - [ ] **Step 4: Apply**
 
 Run: `pnpm codemod:kebab --workspace <workspace>`
+
+**Recovery if the run fails part-way.** Pass 2 performs irreversible `git mv` calls before
+the first `saveSync`, so a failure can leave correct filenames with stale specifiers. Undo
+with:
+
+```bash
+git reset --hard HEAD && git clean -fd
+```
+
+`git checkout` does **not** work: `git mv` _stages_ the rename, and the new kebab-named
+files pass 2 writes are untracked, so `git checkout` reverts neither.
+
+Warning: a case-only rename may still need a manual two-step rename back (rename to a
+temporary name, then to the original), because with `core.ignorecase` git cannot see a
+case-only difference and will report a clean tree while the file is still renamed on disk.
 
 - [ ] **Step 5: Confirm git recorded renames**
 

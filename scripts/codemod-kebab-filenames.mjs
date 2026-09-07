@@ -11,8 +11,10 @@ import {
 } from "./lib/dynamic-import-audit.mjs";
 import {
   applyRenames,
+  describeExecError,
   gitMoveCaseOnly,
   hasNonKebabLastSegment,
+  recordDynamicImportSpecifiers,
   recordMockSpecifiers,
 } from "./lib/kebab-rename-engine.mjs";
 
@@ -46,20 +48,46 @@ const toPosix = (value) => value.split(path.sep).join("/");
 /**
  * Report whether the git working tree that contains `directory` is dirty.
  *
- * Returns `null` when the directory is not inside a git repository, in which
- * case the caller has nothing to protect and proceeds.
+ * Returns `null` only for the one failure that genuinely means "there is
+ * nothing to protect": the directory is not inside a git repository, which git
+ * signals with exit status 128 and `not a git repository` on stderr.
+ *
+ * Every other failure — git not installed, a broken index, an index lock held
+ * by another process — leaves the tree state *unknown*, and treating unknown as
+ * clean silently disables the guard and lets the destructive path run against a
+ * dirty tree. Those throw instead, naming the underlying error.
  */
-export function workingTreeStatus(directory) {
+export function workingTreeStatus(directory, options = {}) {
+  const run = options.run ?? execFileSync;
   try {
-    return execFileSync("git", ["status", "--porcelain"], {
+    return run("git", ["status", "--porcelain"], {
       cwd: directory,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
-  } catch {
-    return null;
+  } catch (error) {
+    const detail = describeExecError(error);
+    if (error?.status === 128 && /not a git repository/i.test(detail)) {
+      return null;
+    }
+    throw new Error(
+      `could not determine the git working tree status of ${directory}: ${detail}`,
+    );
   }
 }
+
+/**
+ * How to undo a run. `git checkout` is wrong on both counts: `gitMoveCaseOnly`
+ * uses `git mv`, which *stages* the rename, and pass 2 writes new kebab-named
+ * files that are untracked — `git checkout` reverts neither.
+ */
+const RECOVERY = "`git reset --hard HEAD && git clean -fd`";
+
+const CASE_ONLY_WARNING =
+  "Note: a case-only rename may still need a manual two-step rename back\n" +
+  "(through a temporary name) — with core.ignorecase git cannot see a\n" +
+  "case-only difference and reports a clean tree while the file is still\n" +
+  "renamed on disk.";
 
 function main() {
   const { values } = parseArgs({
@@ -85,15 +113,22 @@ function main() {
 
   // The engine performs irreversible `git mv` calls in the same pass that can
   // throw, and a pass-3 failure leaves renamed files with stale specifiers.
-  // Insisting on a clean tree keeps `git checkout .` a complete undo. A dry
+  // Insisting on a clean tree keeps the recovery command a complete undo. A dry
   // run writes nothing, so it warns and continues rather than refusing.
-  const status = workingTreeStatus(workspace);
+  let status;
+  try {
+    status = workingTreeStatus(workspace);
+  } catch (error) {
+    console.error(`${error.message}\n\nrefusing to run.`);
+    process.exit(1);
+  }
   if (status !== null && status.trim() !== "") {
     const message =
       "working tree is not clean.\n" +
       "This codemod moves files with `git mv` and rewrites imports in two\n" +
       "separate save steps; a failure part-way is only recoverable with\n" +
-      "`git checkout`. Commit or stash your changes first.\n\n" +
+      `${RECOVERY}. Commit or stash your changes first.\n` +
+      `${CASE_ONLY_WARNING}\n\n` +
       status.trimEnd();
 
     if (!values["dry-run"]) {
@@ -129,24 +164,13 @@ function main() {
     if (!project.getSourceFile(file)) project.addSourceFileAtPath(file);
   }
 
-  const { computed, aliased } = partitionDynamicImports(
-    auditDynamicImports(project),
-  );
+  const { computed } = partitionDynamicImports(auditDynamicImports(project));
 
   if (computed.length > 0) {
     console.warn(
       `${computed.length} computed import() call(s) need manual review:`,
     );
     for (const entry of computed) {
-      console.warn(`  ${display(entry.file)}:${entry.line}  ${entry.text}`);
-    }
-  }
-
-  if (aliased.length > 0) {
-    console.warn(
-      `${aliased.length} non-relative dynamic import() specifier(s) are NOT rewritten — review each:`,
-    );
-    for (const entry of aliased) {
       console.warn(`  ${display(entry.file)}:${entry.line}  ${entry.text}`);
     }
   }
@@ -180,6 +204,25 @@ function main() {
         `  ${display(entry.file)}:${entry.line}  ${entry.specifier}`,
       );
     }
+
+    // Only the aliased dynamic imports that actually point into the rename
+    // plan, plus the ones the last-segment guard refuses. Listing every
+    // non-relative import() (~106 repo-wide, ~43 of them bare packages like
+    // `react`) buries the handful that matter and gets skipped.
+    const dynamic = recordDynamicImportSpecifiers(project, plan).filter(
+      (entry) => entry.renamed,
+    );
+    const dynamicManual = dynamic.filter((entry) => entry.rewritten === null);
+    console.log(
+      `${dynamic.length - dynamicManual.length} aliased dynamic import()/import-type ` +
+        `specifier(s) would be rewritten; ${dynamicManual.length} would need manual attention`,
+    );
+    for (const entry of dynamicManual) {
+      console.warn(
+        `  ${display(entry.file)}:${entry.line}  ${entry.specifier}  -> ${display(entry.resolvedPath)}`,
+      );
+    }
+
     console.log("dry run — nothing written");
     return;
   }
@@ -195,6 +238,9 @@ function main() {
     `rewrote ${report.mockRewrites} vi.mock/require specifier(s); ` +
       `${report.mockManual.length} need manual attention`,
   );
+  console.log(
+    `rewrote ${report.dynamicRewrites} aliased dynamic import()/import-type specifier(s)`,
+  );
 
   if (report.mockManual.length > 0) {
     console.warn("mock specifiers needing manual attention:");
@@ -207,11 +253,11 @@ function main() {
 
   if (report.specifierMismatches.length > 0) {
     console.warn(
-      `${report.specifierMismatches.length} specifier(s) were left untouched because their last segment does not name the renamed file:`,
+      `${report.specifierMismatches.length} specifier(s) point at a renamed file but were left untouched — fix each by hand:`,
     );
     for (const entry of report.specifierMismatches) {
       console.warn(
-        `  ${display(entry.file)}:${entry.line}  ${entry.specifier}  -> ${display(entry.target)}`,
+        `  ${display(entry.file)}:${entry.line}  ${entry.specifier}  -> ${display(entry.target)}  — ${entry.reason}`,
       );
     }
   }

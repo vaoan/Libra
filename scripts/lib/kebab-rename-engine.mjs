@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { SyntaxKind, ts } from "ts-morph";
+import { toKebab } from "./kebab-rename-plan.mjs";
 
 /**
  * Call expressions whose first string-literal argument names a module but which
@@ -74,7 +75,7 @@ export function gitMoveCaseOnly(from, to, options = {}) {
   }
 }
 
-function describeExecError(error) {
+export function describeExecError(error) {
   const stderr = error?.stderr;
   const text =
     typeof stderr === "string"
@@ -145,7 +146,10 @@ function isCaseOnlyStem(oldStem, newStem) {
  */
 export function hasNonKebabLastSegment(specifier) {
   const last = specifier.split("/").pop() ?? "";
-  return /[A-Z]/.test(last);
+  // Same test the rename plan uses to decide whether a file needs renaming,
+  // rather than a private `/[A-Z]/` approximation of it — one definition of
+  // "not kebab-case" for the whole codemod.
+  return toKebab(last) !== last;
 }
 
 /**
@@ -306,6 +310,22 @@ function candidatePaths(specifier, containingFile, compilerOptions) {
 }
 
 /**
+ * The shared module-resolution context for every by-hand `resolveSpecifier`
+ * call in pass 1: the project's own compiler options and resolution host, the
+ * set of files it knows about, and a per-run cache.
+ */
+function resolutionContext(project) {
+  return {
+    compilerOptions: project.getCompilerOptions(),
+    host: project.getModuleResolutionHost(),
+    knownFiles: new Set(
+      project.getSourceFiles().map((file) => normalizePath(file.getFilePath())),
+    ),
+    cache: new Map(),
+  };
+}
+
+/**
  * Pass 1 recording step for `vi.mock`-family and `require` specifiers.
  *
  * These are plain string arguments. TypeScript does not type-check them and
@@ -315,14 +335,7 @@ function candidatePaths(specifier, containingFile, compilerOptions) {
  */
 export function recordMockSpecifiers(project, plan) {
   const pathMap = buildPathMap(plan);
-  const context = {
-    compilerOptions: project.getCompilerOptions(),
-    host: project.getModuleResolutionHost(),
-    knownFiles: new Set(
-      project.getSourceFiles().map((file) => normalizePath(file.getFilePath())),
-    ),
-    cache: new Map(),
-  };
+  const context = resolutionContext(project);
 
   const records = [];
 
@@ -372,12 +385,92 @@ export function recordMockSpecifiers(project, plan) {
 }
 
 /**
+ * Pass 1 recording step for non-relative dynamic `import("…")` arguments and
+ * `import("…")` type nodes (`typeof import("…").foo`, `import("…").Bar`).
+ *
+ * Neither is touched by anybody else: `SourceFile.move()` rewrites only
+ * relative specifiers, and pass 3's import loop covers only
+ * `ImportDeclaration`/`ExportDeclaration` nodes. A path-aliased
+ * `await import("@/features/users/application/utils/exportCsv")` therefore
+ * survives the rename pointing at a file that no longer exists — and unlike a
+ * `vi.mock` path, `tsc` does flag it, which is exactly how the first real
+ * `apps/admin` run was caught.
+ *
+ * Both node kinds bottom out in a `StringLiteral`, so one record shape covers
+ * them; the `kind` field only distinguishes them for reporting.
+ *
+ * Relative specifiers are deliberately skipped — ts-morph already rewrites
+ * those during the move, and recording them would double-handle them.
+ *
+ * The rewrite is planned here rather than in pass 3 because these literals are
+ * non-relative, so nothing between the two passes can change their text; the
+ * `replaceLastSegment` guard therefore gives the same answer either way, and
+ * planning it here lets `--dry-run` report exactly what the real run would do.
+ */
+export function recordDynamicImportSpecifiers(project, plan) {
+  const pathMap = buildPathMap(plan);
+  const context = resolutionContext(project);
+  const records = [];
+
+  const consider = (literal, kind, containingFile, line) => {
+    const specifier = literal.getLiteralValue();
+    if (specifier.startsWith(".")) return;
+
+    const resolvedPath = resolveSpecifier(specifier, containingFile, context);
+    const newPath = resolvedPath ? (pathMap.get(resolvedPath) ?? null) : null;
+
+    records.push({
+      node: literal,
+      kind,
+      file: containingFile,
+      line,
+      specifier,
+      resolvedPath,
+      renamed: newPath !== null,
+      rewritten:
+        newPath === null
+          ? null
+          : replaceLastSegment(
+              specifier,
+              extractStem(resolvedPath),
+              extractStem(newPath),
+            ),
+    });
+  };
+
+  for (const sourceFile of project.getSourceFiles()) {
+    const containingFile = normalizePath(sourceFile.getFilePath());
+
+    for (const call of sourceFile.getDescendantsOfKind(
+      SyntaxKind.CallExpression,
+    )) {
+      if (call.getExpression().getKind() !== SyntaxKind.ImportKeyword) continue;
+      const [argument] = call.getArguments();
+      if (argument?.getKind() !== SyntaxKind.StringLiteral) continue;
+      consider(argument, "call", containingFile, call.getStartLineNumber());
+    }
+
+    for (const node of sourceFile.getDescendantsOfKind(SyntaxKind.ImportType)) {
+      const literal = node
+        .getArgument()
+        ?.asKind?.(SyntaxKind.LiteralType)
+        ?.getLiteral();
+      if (literal?.getKind() !== SyntaxKind.StringLiteral) continue;
+      consider(literal, "type", containingFile, node.getStartLineNumber());
+    }
+  }
+
+  return records;
+}
+
+/**
  * Apply a rename plan to a ts-morph project in three passes.
  *
  * Pass 1: Before any move, record everything the move itself will not fix —
  *         non-relative import/export specifiers, relative specifiers whose
- *         target is a case-only rename, and `vi.mock`-family / `require`
- *         string arguments together with the file each one resolves to.
+ *         target is a case-only rename, `vi.mock`-family / `require` string
+ *         arguments, and non-relative dynamic `import()` / import-type
+ *         specifiers, together with the file each one resolves to.
  * Pass 2: Move files (ts-morph rewrites ordinary relative specifiers here).
  * Pass 3: Rewrite every recorded specifier whose target was renamed.
  *
@@ -388,8 +481,13 @@ export function recordMockSpecifiers(project, plan) {
  * inside the same loop that can throw, and the first `saveSync` happens only
  * after that loop completes. A throw in pass 3 therefore leaves the tree with
  * correct filenames but stale aliased/mock specifiers. Both states are
- * recoverable only by `git checkout`, which is why the CLI refuses to run
- * against a dirty working tree.
+ * recoverable only by `git reset --hard HEAD && git clean -fd` — `git checkout`
+ * neither unstages the `git mv` renames nor removes the untracked kebab-named
+ * files — which is why the CLI refuses to run against a dirty working tree.
+ * Even then, a case-only rename may need a manual two-step rename back
+ * (via a temporary name), because with `core.ignorecase` git cannot see a
+ * case-only difference and reports a clean tree while the file is still
+ * renamed on disk.
  *
  * Returns a report describing what was rewritten and what needs a human.
  */
@@ -399,12 +497,14 @@ export function applyRenames(project, plan, options = {}) {
   // ---- Pass 1: record ----------------------------------------------------
   const importRecords = recordImportSpecifiers(project, plan);
   const mockRecords = recordMockSpecifiers(project, plan);
+  const dynamicRecords = recordDynamicImportSpecifiers(project, plan);
 
   const report = {
     renamed: 0,
     importRewrites: 0,
     caseOnlyRelativeRewrites: 0,
     mockRewrites: 0,
+    dynamicRewrites: 0,
     mockManual: [],
     specifierMismatches: [],
   };
@@ -453,7 +553,10 @@ export function applyRenames(project, plan, options = {}) {
       continue;
     }
 
-    if (rewritten !== current) record.node.setModuleSpecifier(rewritten);
+    // Count rewrites, not visits: a specifier that already reads the way it
+    // should is not a change and must not inflate the headline number.
+    if (rewritten === current) continue;
+    record.node.setModuleSpecifier(rewritten);
     report.importRewrites += 1;
     if (record.relative) report.caseOnlyRelativeRewrites += 1;
   }
@@ -513,6 +616,8 @@ export function applyRenames(project, plan, options = {}) {
     const rewritten = replaceLastSegment(record.specifier, oldStem, newStem);
 
     if (rewritten === null) {
+      // Reported once, under the guard's own heading. Pushing it to
+      // `mockManual` as well made the CLI print the same site twice.
       report.specifierMismatches.push({
         file: record.file,
         line: record.line,
@@ -520,17 +625,41 @@ export function applyRenames(project, plan, options = {}) {
         target: record.resolvedPath,
         reason: "last segment does not name the renamed file",
       });
-      report.mockManual.push({
-        file: record.file,
-        line: record.line,
-        specifier: record.specifier,
-        reason: "last segment does not name the renamed file",
-      });
       continue;
     }
 
     if (rewritten !== record.specifier) record.node.setLiteralValue(rewritten);
     report.mockRewrites += 1;
+  }
+
+  for (const record of dynamicRecords) {
+    if (!record.renamed) continue;
+
+    if (record.rewritten === null) {
+      report.specifierMismatches.push({
+        file: record.file,
+        line: record.line,
+        specifier: record.specifier,
+        target: record.resolvedPath,
+        reason: "last segment does not name the renamed file",
+      });
+      continue;
+    }
+
+    if (record.node.wasForgotten?.()) {
+      report.specifierMismatches.push({
+        file: record.file,
+        line: record.line,
+        specifier: record.specifier,
+        target: record.resolvedPath,
+        reason: "AST node was invalidated before it could be rewritten",
+      });
+      continue;
+    }
+
+    if (record.rewritten === record.node.getLiteralValue()) continue;
+    record.node.setLiteralValue(record.rewritten);
+    report.dynamicRewrites += 1;
   }
 
   project.saveSync();
