@@ -61,7 +61,8 @@
     "check:a11y-patterns": "node scripts/check-a11y-patterns.mjs",
     "check:boundaries": "node scripts/check-feature-boundaries.mjs",
     "check:doc-refs": "node scripts/check-doc-references.mjs",
-    "check:docs": "node scripts/check-doc-freshness.mjs"
+    "check:docs": "node scripts/check-doc-freshness.mjs",
+    "codemod:kebab": "node scripts/codemod-kebab-filenames.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
