@@ -122,8 +122,6 @@ ingress:
     service: http://127.0.0.1:${appPort}
   - hostname: payments.${baseHost}
     service: http://127.0.0.1:${appPort}
-  - hostname: playground.${baseHost}
-    service: http://127.0.0.1:${appPort}
   - hostname: studio.${baseHost}
     service: http://127.0.0.1:${appPort}
   - hostname: landing.${baseHost}

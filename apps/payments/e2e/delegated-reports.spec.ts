@@ -1,16 +1,15 @@
 import path from "node:path";
-import { expect, test } from "@playwright/test";
 
 import {
   ELEMENT_TIMEOUT_MS,
   MUTATION_WAIT_MS,
 } from "../../auth/e2e/helpers/constants";
+import { expect, test } from "../../auth/e2e/fixtures/autoCleanup";
 import {
   SELLER_PERMISSIONS,
   adminDelete,
   adminInsert,
   createTestUser,
-  deleteTestUser,
   injectSession,
   type TestUser,
 } from "../../auth/e2e/helpers/session";
@@ -126,9 +125,6 @@ test.describe.serial("Delegated Reports page", () => {
       () => {},
     );
     await adminDelete("products", `id=eq.${otherProductId}`).catch(() => {});
-    await deleteTestUser(buyerUser).catch(() => {});
-    await deleteTestUser(delegateUser).catch(() => {});
-    await deleteTestUser(sellerUser).catch(() => {});
   });
 
   // ─── Menu + page ─────────────────────────────────────────────────
@@ -259,7 +255,6 @@ test.describe.serial("Delegated Reports page", () => {
         "seller_admins",
         `id=eq.${noReportDelegation.id}`,
       ).catch(() => {});
-      await deleteTestUser(noReportDelegate).catch(() => {});
     }
   });
 });

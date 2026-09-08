@@ -1767,7 +1767,6 @@ const eslintConfig = defineConfig([
   },
   // Enforce nuqs for URL-worthy state in web and admin application hooks
   // useState in application/hooks MUST be justified — prefer useQueryStates from nuqs
-  // Playground is excluded (experimentation sandbox)
   // See: .claude/rules/url-state.md
   {
     files: [

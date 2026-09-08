@@ -24,41 +24,42 @@ is_changed() {
 
 DEPLOY_CHANGED=false
 STORE_CHANGED=false
+STUDIO_CHANGED=false
 LANDING_CHANGED=false
 PAYMENTS_CHANGED=false
 ADMIN_CHANGED=false
 AUTH_CHANGED=false
-PLAYGROUND_CHANGED=false
 PACKAGES_CHANGED=false
 TOOLING_CHANGED=false
 CODE_CHANGED=false
 
 is_changed '^(Dockerfile|docker/|\.dockerignore)' && DEPLOY_CHANGED=true
 is_changed '^apps/store/' && STORE_CHANGED=true
+is_changed '^apps/studio/' && STUDIO_CHANGED=true
 is_changed '^apps/landing/' && LANDING_CHANGED=true
 is_changed '^apps/payments/' && PAYMENTS_CHANGED=true
 is_changed '^apps/admin/' && ADMIN_CHANGED=true
 is_changed '^apps/auth/' && AUTH_CHANGED=true
-is_changed '^apps/playground/' && PLAYGROUND_CHANGED=true
 is_changed '^packages/' && PACKAGES_CHANGED=true
 is_changed '^(package\.json|pnpm-lock\.yaml|tsconfig.*\.json|eslint\.config\..*|prettier\.config\..*)' && TOOLING_CHANGED=true
 is_changed '\.(ts|tsx|js|jsx)$' && CODE_CHANGED=true
 
 DOCS_ONLY=true
-if [ "$DEPLOY_CHANGED" = true ] || [ "$STORE_CHANGED" = true ] || [ "$LANDING_CHANGED" = true ] || \
+if [ "$DEPLOY_CHANGED" = true ] || [ "$STORE_CHANGED" = true ] || [ "$STUDIO_CHANGED" = true ] || \
+   [ "$LANDING_CHANGED" = true ] || \
    [ "$PAYMENTS_CHANGED" = true ] || [ "$ADMIN_CHANGED" = true ] || \
-   [ "$AUTH_CHANGED" = true ] || [ "$PLAYGROUND_CHANGED" = true ] || \
+   [ "$AUTH_CHANGED" = true ] || \
    [ "$PACKAGES_CHANGED" = true ] || [ "$TOOLING_CHANGED" = true ]; then
   DOCS_ONLY=false
 fi
 
 echo "DEPLOY_CHANGED=$DEPLOY_CHANGED"
 echo "STORE_CHANGED=$STORE_CHANGED"
+echo "STUDIO_CHANGED=$STUDIO_CHANGED"
 echo "LANDING_CHANGED=$LANDING_CHANGED"
 echo "PAYMENTS_CHANGED=$PAYMENTS_CHANGED"
 echo "ADMIN_CHANGED=$ADMIN_CHANGED"
 echo "AUTH_CHANGED=$AUTH_CHANGED"
-echo "PLAYGROUND_CHANGED=$PLAYGROUND_CHANGED"
 echo "PACKAGES_CHANGED=$PACKAGES_CHANGED"
 echo "TOOLING_CHANGED=$TOOLING_CHANGED"
 echo "CODE_CHANGED=$CODE_CHANGED"

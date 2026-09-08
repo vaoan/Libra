@@ -1,6 +1,6 @@
 # =============================================================================
 # Libra — CI / local-dev image (all apps, built from source)
-# Builds all 7 apps in standalone mode, runs them behind nginx via supervisord.
+# Builds all 6 apps in standalone mode, runs them behind nginx via supervisord.
 # Exposes port 8080 (nginx) for E2E testing all routes.
 # Build: docker build -f docker/ci/Dockerfile -t libra-ci .
 # Run:   docker run -p 8088:8080 libra-ci
@@ -17,7 +17,6 @@ COPY apps/auth/package.json ./apps/auth/
 COPY apps/admin/package.json ./apps/admin/
 COPY apps/landing/package.json ./apps/landing/
 COPY apps/payments/package.json ./apps/payments/
-COPY apps/playground/package.json ./apps/playground/
 COPY apps/studio/package.json ./apps/studio/
 COPY packages/api/package.json ./packages/api/
 COPY packages/ui/package.json ./packages/ui/
@@ -35,7 +34,6 @@ ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ARG NEXT_PUBLIC_AUTH_URL
 ARG NEXT_PUBLIC_STORE_URL
 ARG NEXT_PUBLIC_ADMIN_URL
-ARG NEXT_PUBLIC_PLAYGROUND_URL
 ARG NEXT_PUBLIC_LANDING_URL
 ARG NEXT_PUBLIC_PAYMENTS_URL
 ARG NEXT_PUBLIC_STUDIO_URL
@@ -52,7 +50,6 @@ ENV NEXT_PUBLIC_AUTH_URL=$NEXT_PUBLIC_AUTH_URL
 ENV NEXT_PUBLIC_AUTH_HOST_URL=$NEXT_PUBLIC_AUTH_HOST_URL
 ENV NEXT_PUBLIC_STORE_URL=$NEXT_PUBLIC_STORE_URL
 ENV NEXT_PUBLIC_ADMIN_URL=$NEXT_PUBLIC_ADMIN_URL
-ENV NEXT_PUBLIC_PLAYGROUND_URL=$NEXT_PUBLIC_PLAYGROUND_URL
 ENV NEXT_PUBLIC_LANDING_URL=$NEXT_PUBLIC_LANDING_URL
 ENV NEXT_PUBLIC_PAYMENTS_URL=$NEXT_PUBLIC_PAYMENTS_URL
 ENV NEXT_PUBLIC_STUDIO_URL=$NEXT_PUBLIC_STUDIO_URL
@@ -69,7 +66,6 @@ RUN pnpm --filter store run build && \
     pnpm --filter admin run build && \
     pnpm --filter landing run build && \
     pnpm --filter payments run build && \
-    pnpm --filter playground run build && \
     pnpm --filter studio run build
 
 # ── Stage 3: runner ───────────────────────────────────────────────────────────
@@ -102,10 +98,6 @@ COPY --from=builder /app/apps/payments/.next/standalone /app/payments/
 COPY --from=builder /app/apps/payments/.next/static     /app/payments/apps/payments/.next/static
 COPY --from=builder /app/apps/payments/public           /app/payments/apps/payments/public
 
-COPY --from=builder /app/apps/playground/.next/standalone /app/playground/
-COPY --from=builder /app/apps/playground/.next/static     /app/playground/apps/playground/.next/static
-COPY --from=builder /app/apps/playground/public           /app/playground/apps/playground/public
-
 COPY --from=builder /app/apps/studio/.next/standalone   /app/studio/
 COPY --from=builder /app/apps/studio/.next/static       /app/studio/apps/studio/.next/static
 COPY --from=builder /app/apps/studio/public             /app/studio/apps/studio/public
@@ -114,16 +106,14 @@ COPY --from=builder /app/apps/studio/public             /app/studio/apps/studio/
 COPY docker/prod/nginx.conf /etc/nginx/nginx.conf
 COPY docker/prod/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Copy the in-container health watcher and warm-up loop — supervisord.conf
-# (shared with docker/prod/Dockerfile) declares both [program:watcher] and
-# [program:warmer], so both must be present or the missing one crash-loops
-# forever: `startsecs=0` means supervisord treats every immediate exit as a
-# completed start, so `autorestart=true` respawns it as fast as the shell can
-# fork — no `startretries` backoff ever applies. That CPU storm starved the
-# app's own request handling, which is why apps/store/e2e/auth.setup.ts's
+# Copy the warm-up loop — supervisord.conf (shared with docker/prod/Dockerfile)
+# declares [program:warmer], so it must be present or it crash-loops forever:
+# `startsecs=0` means supervisord treats every immediate exit as a completed
+# start, so `autorestart=true` respawns it as fast as the shell can fork — no
+# `startretries` backoff ever applies. That CPU storm starved the app's own
+# request handling, which is why apps/store/e2e/auth.setup.ts's
 # `/en/callback` navigation could intermittently see the container refuse
 # connections even though the earlier `/en/login` navigation had succeeded.
-COPY docker/watcher.mjs /app/watcher.mjs
 COPY docker/warmer.sh /app/warmer.sh
 
 RUN chown -R nextjs:nodejs /app && \

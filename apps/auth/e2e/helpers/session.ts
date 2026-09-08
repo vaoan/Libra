@@ -5,6 +5,9 @@ import { clerk, clerkSetup } from "@clerk/testing/playwright";
 import type { BrowserContext } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
+import { assertNotProductionClerk } from "./guardEnv";
+import { attachProfileId, registerClerkUser } from "./userRegistry";
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- shared Node helper
 const { resolveE2EAppUrls } = require(
   path.resolve(__dirname, "../../../../scripts/app-url-resolver.js"),
@@ -47,6 +50,7 @@ if (!CLERK_SECRET_KEY)
     "CLERK_SECRET_KEY is not set. Ensure the correct .env.* file is loaded.",
   );
 const CLERK_SECRET_KEY_VALUE: string = CLERK_SECRET_KEY;
+assertNotProductionClerk(CLERK_SECRET_KEY_VALUE);
 
 const AUTH_URL: string = resolveE2EAppUrls().auth;
 
@@ -304,6 +308,18 @@ export async function deleteClerkUserBySub(clerkUserId: string): Promise<void> {
  * `user_profiles` row, default buyer permissions, and any additional
  * `permissions` requested.
  *
+ * As a side effect, registers the Clerk user into the module-level cleanup
+ * registry (`userRegistry.ts`) the instant it is created — before the
+ * profile RPC, `grantPermissions`, or session/token minting below get a
+ * chance to throw. This ordering is the correctness argument for the whole
+ * auto-cleanup mechanism: if any later step throws, the Clerk user is
+ * already registered and `drainTestUsers` can still delete it, instead of
+ * orphaning it against the Clerk dev instance's 100-user cap. Once the
+ * profile row exists, the registry entry is enriched with the profile id
+ * (`attachProfileId`) so a later failure still lets drain use the full
+ * `deleteTestUser` (profile row + Clerk user) rather than the Clerk-only
+ * fallback.
+ *
  * Profile creation calls the exact RPC `resolveProfile()`'s "created" branch
  * uses in production (`create_profile_with_default_permissions` — see
  * supabase/migrations/20260829170000_profile_create_with_permissions.sql)
@@ -331,6 +347,12 @@ export async function createTestUser(
     emailAddress: [email],
     skipPasswordRequirement: true,
   });
+  // Register the instant the Clerk user exists -- before the profile RPC,
+  // permission grants, or session/token minting below get a chance to throw
+  // and orphan it against the Clerk dev instance's 100-user cap. This is the
+  // exact "throws inside beforeAll" gap the old afterAll convention leaked
+  // on; see userRegistry.ts's RegisteredUser doc comment.
+  registerClerkUser({ clerkUserId: clerkUser.id, email });
 
   const { data: profile, error } = await supabaseAdmin.rpc(
     "create_profile_with_default_permissions",
@@ -347,6 +369,11 @@ export async function createTestUser(
     );
   }
   const profileId = (profile as { id: string }).id;
+  // Enrich the registry entry as soon as the profile exists, so a later
+  // failure (grantPermissions, session/token minting) still lets drain use
+  // the full deleteTestUser (profile row + Clerk user) instead of the
+  // Clerk-only fallback.
+  attachProfileId(clerkUser.id, profileId);
 
   if (permissions.length > 0) {
     await grantPermissions(profileId, permissions);

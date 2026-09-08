@@ -68,14 +68,6 @@
         "e2e/**/*.ts"
       ]
     },
-    "apps/playground": {
-      "entry": [
-        "src/app/**/*.{ts,tsx}",
-        "src/shared/infrastructure/i18n/request.ts",
-        "src/features/*/index.ts"
-      ],
-      "project": ["src/**/*.{ts,tsx,js,jsx}"]
-    },
     "apps/store": {
       "entry": [
         "src/app/**/*.{ts,tsx}",

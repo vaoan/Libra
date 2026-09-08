@@ -7,7 +7,6 @@ const EXPECTED_DEV_URLS = {
   payments: "http://localhost:5005",
   admin: "http://localhost:5002",
   auth: "http://localhost:5000",
-  playground: "http://localhost:5003",
 } as const;
 
 const EXPECTED_PROD_PATHS = {
@@ -17,7 +16,6 @@ const EXPECTED_PROD_PATHS = {
   payments: "/payments",
   admin: "/admin",
   auth: "/auth",
-  playground: "/playground",
 } as const;
 
 /** Clear all app-URL env vars so the module falls back to defaults. */
@@ -28,7 +26,6 @@ function clearAppUrlEnvVars() {
   vi.stubEnv("NEXT_PUBLIC_PAYMENTS_URL", "");
   vi.stubEnv("NEXT_PUBLIC_ADMIN_URL", "");
   vi.stubEnv("NEXT_PUBLIC_AUTH_URL", "");
-  vi.stubEnv("NEXT_PUBLIC_PLAYGROUND_URL", "");
 }
 
 async function importFreshAppUrls() {

@@ -34,7 +34,6 @@ const ALLOWED_REDIRECT_ORIGINS = [
   process.env.NEXT_PUBLIC_ADMIN_URL,
   process.env.NEXT_PUBLIC_PAYMENTS_URL,
   process.env.NEXT_PUBLIC_STUDIO_URL,
-  process.env.NEXT_PUBLIC_PLAYGROUND_URL,
   process.env.NEXT_PUBLIC_LANDING_URL,
 ].filter((value): value is string => value !== undefined);
 

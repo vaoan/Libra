@@ -7,10 +7,9 @@ LANDING_CHANGED="${2:-false}"
 PAYMENTS_CHANGED="${3:-false}"
 ADMIN_CHANGED="${4:-false}"
 AUTH_CHANGED="${5:-false}"
-PLAYGROUND_CHANGED="${6:-false}"
-PACKAGES_CHANGED="${7:-false}"
-TOOLING_CHANGED="${8:-false}"
-STUDIO_CHANGED="${9:-false}"
+PACKAGES_CHANGED="${6:-false}"
+TOOLING_CHANGED="${7:-false}"
+STUDIO_CHANGED="${8:-false}"
 
 RUN_ALL="false"
 if [ "$PACKAGES_CHANGED" = "true" ] || [ "$TOOLING_CHANGED" = "true" ]; then
@@ -41,7 +40,6 @@ if [ "$RUN_ALL" = "true" ]; then
   append_app "payments" "apps/payments/src"
   append_app "admin" "apps/admin/src"
   append_app "auth-app" "apps/auth/src" "apps/auth"
-  append_app "playground" "apps/playground/src" "apps/playground"
 else
   [ "$STORE_CHANGED" = "true" ] && append_app "store" "apps/store/src"
   [ "$STUDIO_CHANGED" = "true" ] && append_app "studio" "apps/studio/src"
@@ -49,7 +47,6 @@ else
   [ "$PAYMENTS_CHANGED" = "true" ] && append_app "payments" "apps/payments/src"
   [ "$ADMIN_CHANGED" = "true" ] && append_app "admin" "apps/admin/src"
   [ "$AUTH_CHANGED" = "true" ] && append_app "auth-app" "apps/auth/src" "apps/auth"
-  [ "$PLAYGROUND_CHANGED" = "true" ] && append_app "playground" "apps/playground/src" "apps/playground"
 fi
 
 APPS="$(echo "$APPS" | xargs)"

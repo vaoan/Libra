@@ -195,7 +195,8 @@ export function loadEnv(targetEnv) {
   process.env.TARGET_ENV = env;
 
   // If ENV_DEBUG=true, serialize all resolved vars into a single NEXT_PUBLIC_ var
-  // so the playground can display them without needing turbo globalEnv entries.
+  // so admin's /en/env debug viewer can display them without needing turbo
+  // globalEnv entries.
   // Guard: never expose env vars in production builds.
   const isProduction =
     process.env.NODE_ENV === "production" ||

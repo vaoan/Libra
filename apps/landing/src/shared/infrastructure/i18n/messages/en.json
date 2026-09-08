@@ -155,8 +155,7 @@
     "studio": "Studio",
     "payments": "Payments",
     "admin": "Admin",
-    "auth": "Account",
-    "playground": "Playground"
+    "auth": "Account"
   },
   "common": {
     "error": "An error occurred",

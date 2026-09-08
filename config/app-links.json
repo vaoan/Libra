@@ -14,11 +14,6 @@
     "path": "/admin",
     "devUrl": "http://localhost:5002"
   },
-  "playground": {
-    "envKey": "NEXT_PUBLIC_PLAYGROUND_URL",
-    "path": "/playground",
-    "devUrl": "http://localhost:5003"
-  },
   "payments": {
     "envKey": "NEXT_PUBLIC_PAYMENTS_URL",
     "path": "/payments",

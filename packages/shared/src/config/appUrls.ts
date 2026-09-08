@@ -29,5 +29,4 @@ export const appUrls = Object.freeze({
   payments: resolveAppUrl("payments"),
   admin: resolveAppUrl("admin"),
   auth: resolveAppUrl("auth"),
-  playground: resolveAppUrl("playground"),
 });

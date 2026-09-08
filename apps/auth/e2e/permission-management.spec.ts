@@ -1,6 +1,7 @@
 import path from "node:path";
 
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
+import { expect, test } from "./fixtures/autoCleanup";
 
 import { cleanupTestData } from "./helpers/cleanup";
 import {
@@ -508,7 +509,6 @@ test.describe.serial("Permission management", () => {
     await expectVisible(page, "nav-link-landing");
     await expectVisible(page, "nav-link-store");
     await expectVisible(page, "nav-link-auth");
-    await expectHidden(page, "nav-link-playground");
 
     await page.goto(`${APP_URLS.PAYMENTS}/en/checkout`);
     await expectVisible(page, "access-denied");

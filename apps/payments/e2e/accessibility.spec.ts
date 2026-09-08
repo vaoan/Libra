@@ -1,14 +1,13 @@
 import path from "node:path";
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
 
 import { ELEMENT_TIMEOUT_MS } from "../../auth/e2e/helpers/constants";
+import { expect, test } from "../../auth/e2e/fixtures/autoCleanup";
 import {
   BUYER_PERMISSIONS,
   SELLER_PERMISSIONS,
   createTestUser,
-  deleteTestUser,
   injectSession,
   type TestUser,
 } from "../../auth/e2e/helpers/session";
@@ -59,11 +58,6 @@ test.describe.serial("Payments accessibility", () => {
   test.beforeAll(async () => {
     seller = await createTestUser("payments-a11y-seller", SELLER_PERMISSIONS);
     buyer = await createTestUser("payments-a11y-buyer", BUYER_PERMISSIONS);
-  });
-
-  test.afterAll(async () => {
-    await deleteTestUser(seller).catch(() => {});
-    await deleteTestUser(buyer).catch(() => {});
   });
 
   test("seller reports has no WCAG 2 AA violations", async ({

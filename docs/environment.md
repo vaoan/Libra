@@ -96,7 +96,7 @@ At runtime, `loadEnv` replaces `$secret:STAGING_SUPABASE_ANON_KEY` with the valu
 4. **In CI** (`CI=true`): secrets are already in `process.env` — reads them directly, skips `.secrets`
 5. Writes all resolved vars into `process.env` — **existing vars win** (CLI/CI overrides are never overwritten)
 6. Sets `TARGET_ENV` so app code knows which environment is active
-7. If `ENV_DEBUG=true`: serializes all vars into `NEXT_PUBLIC_ENV_DEBUG` for the playground debug viewer
+7. If `ENV_DEBUG=true`: serializes all vars into `NEXT_PUBLIC_ENV_DEBUG` for the admin debug viewer (`/en/env`)
 
 ### Sync secrets from GitHub
 
@@ -125,7 +125,6 @@ In dev mode, each app reads its port from its own `NEXT_PUBLIC_<APP>_URL` env va
 NEXT_PUBLIC_AUTH_URL=http://localhost:5000      → auth runs on 5000
 NEXT_PUBLIC_STORE_URL=http://localhost:5001     → store runs on 5001
 NEXT_PUBLIC_ADMIN_URL=http://localhost:5002     → admin runs on 5002
-NEXT_PUBLIC_PLAYGROUND_URL=http://localhost:5003
 NEXT_PUBLIC_LANDING_URL=http://localhost:5004
 NEXT_PUBLIC_PAYMENTS_URL=http://localhost:5005
 NEXT_PUBLIC_STUDIO_URL=http://localhost:5006

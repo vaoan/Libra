@@ -1,15 +1,13 @@
-import { expect, test } from "@playwright/test";
-
 import {
   ELEMENT_TIMEOUT_MS,
   MUTATION_WAIT_MS,
 } from "../../auth/e2e/helpers/constants";
+import { expect, test } from "../../auth/e2e/fixtures/autoCleanup";
 import {
   ADMIN_PERMISSIONS,
   adminDelete,
   adminInsert,
   createTestUser,
-  deleteTestUser,
   injectSession,
   supabaseAdmin,
   type TestUser,
@@ -116,8 +114,6 @@ test.describe.serial("Reports page", () => {
         .remove([receiptStoragePath])
         .catch(() => {});
     }
-    await deleteTestUser(buyerUser).catch(() => {});
-    await deleteTestUser(adminUser).catch(() => {});
   });
 
   // ─── Page structure ─────────────────────────────────────────────
@@ -345,31 +341,27 @@ test.describe.serial("Reports page", () => {
       // no admin.reports permission
     ]);
 
-    try {
-      await injectSession(context, limitedUser);
-      await page.goto(`${getAdminBaseUrl()}/en/reports`);
+    await injectSession(context, limitedUser);
+    await page.goto(`${getAdminBaseUrl()}/en/reports`);
 
-      // Anchor on something positive before asserting an absence. The page
-      // shell renders for any signed-in user and the data layer is what
-      // refuses, so `reports-page` is the normal outcome; `access-denied`
-      // covers a guard that short-circuits instead. Waiting for either means
-      // the absence below is measured against a rendered page rather than
-      // against a page that had not started.
-      await expect(
-        page.getByTestId("reports-page").or(page.getByTestId("access-denied")),
-      ).toBeVisible({ timeout: ELEMENT_TIMEOUT_MS });
+    // Anchor on something positive before asserting an absence. The page
+    // shell renders for any signed-in user and the data layer is what
+    // refuses, so `reports-page` is the normal outcome; `access-denied`
+    // covers a guard that short-circuits instead. Waiting for either means
+    // the absence below is measured against a rendered page rather than
+    // against a page that had not started.
+    await expect(
+      page.getByTestId("reports-page").or(page.getByTestId("access-denied")),
+    ).toBeVisible({ timeout: ELEMENT_TIMEOUT_MS });
 
-      // The app may enforce this by redirecting or by returning 403 and
-      // rendering an error state. Either is fine; the invariant is the same
-      // and holds in both cases, so assert it directly rather than branching.
-      // Branching meant that if isOnReportsPage were ever computed wrongly the
-      // test would assert something unrelated and still pass -- on an access
-      // control check.
-      await expect(page.getByTestId("report-table")).toBeHidden({
-        timeout: ELEMENT_TIMEOUT_MS,
-      });
-    } finally {
-      await deleteTestUser(limitedUser).catch(() => {});
-    }
+    // The app may enforce this by redirecting or by returning 403 and
+    // rendering an error state. Either is fine; the invariant is the same
+    // and holds in both cases, so assert it directly rather than branching.
+    // Branching meant that if isOnReportsPage were ever computed wrongly the
+    // test would assert something unrelated and still pass -- on an access
+    // control check.
+    await expect(page.getByTestId("report-table")).toBeHidden({
+      timeout: ELEMENT_TIMEOUT_MS,
+    });
   });
 });

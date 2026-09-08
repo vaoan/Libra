@@ -1,16 +1,15 @@
 import path from "node:path";
-import { expect, test } from "@playwright/test";
 
 import {
   ELEMENT_TIMEOUT_MS,
   MUTATION_WAIT_MS,
 } from "../../auth/e2e/helpers/constants";
+import { expect, test } from "../../auth/e2e/fixtures/autoCleanup";
 import {
   SELLER_PERMISSIONS,
   adminDelete,
   adminInsert,
   createTestUser,
-  deleteTestUser,
   injectSession,
   supabaseAdmin,
   type TestUser,
@@ -105,8 +104,6 @@ test.describe.serial("Seller Reports page", () => {
         .remove([receiptStoragePath])
         .catch(() => {});
     }
-    await deleteTestUser(buyerUser).catch(() => {});
-    await deleteTestUser(sellerUser).catch(() => {});
   });
 
   // ─── Page structure ──────────────────────────────────────────────
@@ -308,29 +305,25 @@ test.describe.serial("Seller Reports page", () => {
       "other-seller-reports",
       SELLER_PERMISSIONS,
     );
-    try {
-      await injectSession(context, otherSeller);
-      await page.goto(`${getPaymentsBaseUrl()}/en/reports`);
+    await injectSession(context, otherSeller);
+    await page.goto(`${getPaymentsBaseUrl()}/en/reports`);
 
-      // The table renders either rows or an empty state, so waiting for one of
-      // them proves the filtered page finished rendering. The assertion below is
-      // an absence, and an absence is also satisfied by a page that never
-      // rendered -- that is what the sleep was covering for.
-      await expect(
-        page
-          .getByTestId("seller-report-table")
-          .or(page.getByTestId("seller-report-empty")),
-      ).toBeVisible({ timeout: ELEMENT_TIMEOUT_MS });
+    // The table renders either rows or an empty state, so waiting for one of
+    // them proves the filtered page finished rendering. The assertion below is
+    // an absence, and an absence is also satisfied by a page that never
+    // rendered -- that is what the sleep was covering for.
+    await expect(
+      page
+        .getByTestId("seller-report-table")
+        .or(page.getByTestId("seller-report-empty")),
+    ).toBeVisible({ timeout: ELEMENT_TIMEOUT_MS });
 
-      // The seeded order belongs to sellerUser, not otherSeller — must not be visible
-      await expect(
-        page
-          .locator(`[data-testid^="seller-report-row-transfer-"]`)
-          .filter({ hasText: TEST_ORDER.transfer_number }),
-      ).toBeHidden();
-    } finally {
-      await deleteTestUser(otherSeller).catch(() => {});
-    }
+    // The seeded order belongs to sellerUser, not otherSeller — must not be visible
+    await expect(
+      page
+        .locator(`[data-testid^="seller-report-row-transfer-"]`)
+        .filter({ hasText: TEST_ORDER.transfer_number }),
+    ).toBeHidden();
   });
 
   // ─── Export ───────────────────────────────────────────────────────
