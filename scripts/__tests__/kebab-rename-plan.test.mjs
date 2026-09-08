@@ -39,7 +39,11 @@ describe("buildRenamePlan", () => {
   it("preserves compound extensions", () => {
     const { plan } = buildRenamePlan(["src/LoginForm.test.tsx"]);
     expect(plan).toEqual([
-      { from: "src/LoginForm.test.tsx", to: "src/login-form.test.tsx", caseOnly: false },
+      {
+        from: "src/LoginForm.test.tsx",
+        to: "src/login-form.test.tsx",
+        caseOnly: false,
+      },
     ]);
   });
 
@@ -64,9 +68,15 @@ describe("buildRenamePlan", () => {
   });
 
   it("reports collisions instead of silently overwriting", () => {
-    const { collisions } = buildRenamePlan(["src/userApi.ts", "src/UserAPI.ts"]);
+    const { collisions } = buildRenamePlan([
+      "src/userApi.ts",
+      "src/UserAPI.ts",
+    ]);
     expect(collisions).toEqual([
-      { target: "src/user-api.ts", sources: ["src/userApi.ts", "src/UserAPI.ts"] },
+      {
+        target: "src/user-api.ts",
+        sources: ["src/userApi.ts", "src/UserAPI.ts"],
+      },
     ]);
   });
 

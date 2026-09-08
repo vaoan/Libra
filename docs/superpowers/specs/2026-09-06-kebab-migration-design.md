@@ -28,11 +28,11 @@ in ADR 0001.
 
 ## Scope
 
-| Location | Files | To rename |
-|---|---|---|
-| `apps/*/src`, `packages/*/src` | 677 | 396 |
-| `apps/*/tests`, `apps/*/test`, `packages/*/tests`, `apps/*/e2e` | 390 | 298 |
-| **Total** | **1,067** | **694** |
+| Location                                                        | Files     | To rename |
+| --------------------------------------------------------------- | --------- | --------- |
+| `apps/*/src`, `packages/*/src`                                  | 677       | 396       |
+| `apps/*/tests`, `apps/*/test`, `packages/*/tests`, `apps/*/e2e` | 390       | 298       |
+| **Total**                                                       | **1,067** | **694**   |
 
 Per workspace, in `src` only:
 
@@ -74,12 +74,19 @@ unobserved.
 
 ```yaml
 ls:
-  apps/*/src:        { .ts: kebab-case, .tsx: kebab-case, .js: kebab-case, .css: kebab-case, .json: kebab-case }
-  apps/*/tests:      { .ts: kebab-case, .tsx: kebab-case }
-  apps/*/test:       { .ts: kebab-case, .tsx: kebab-case }
-  apps/*/e2e:        { .ts: kebab-case, .spec.ts: kebab-case }
-  packages/*/src:    { .ts: kebab-case, .tsx: kebab-case }
-  packages/*/tests:  { .ts: kebab-case, .tsx: kebab-case }
+  apps/*/src:
+    {
+      .ts: kebab-case,
+      .tsx: kebab-case,
+      .js: kebab-case,
+      .css: kebab-case,
+      .json: kebab-case,
+    }
+  apps/*/tests: { .ts: kebab-case, .tsx: kebab-case }
+  apps/*/test: { .ts: kebab-case, .tsx: kebab-case }
+  apps/*/e2e: { .ts: kebab-case, .spec.ts: kebab-case }
+  packages/*/src: { .ts: kebab-case, .tsx: kebab-case }
+  packages/*/tests: { .ts: kebab-case, .tsx: kebab-case }
 ```
 
 The documented shadcn/ui exception is deleted. Those files are already lowercase
