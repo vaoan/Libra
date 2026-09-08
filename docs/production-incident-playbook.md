@@ -175,7 +175,7 @@ ssh furrycolombia@192.168.2.71
 cd ~/libra
 
 # Ensure dirs exist (they might be empty after a bad sync)
-for APP in store admin auth landing payments studio playground; do
+for APP in store admin auth landing payments studio; do
   mkdir -p "apps/$APP/.next/static"
   mkdir -p "apps/$APP/public"
 done
@@ -277,7 +277,7 @@ GitHub push to main
 ```yaml
 - name: Ensure artifact directories are non-empty
   run: |
-    for app in store admin auth landing payments studio playground; do
+    for app in store admin auth landing payments studio; do
       mkdir -p "apps/$app/.next/static"
       touch "apps/$app/.next/static/.artifact-placeholder"
       mkdir -p "apps/$app/public"
@@ -442,7 +442,7 @@ push to main              │   GitHub Actions          │
 | `docker/prod/Dockerfile`                  | Production Docker image (uses pre-built .next/)                      |
 | `docker/ci/Dockerfile`                    | CI/local Docker image (builds inside container)                      |
 | `scripts/docker-health-check.sh`          | Pre-push hook — builds + health-checks Docker image                  |
-| `docker/watcher.mjs`                      | Host-side health monitor (runs via PM2 as libra-watcher)             |
+| `docker/compose.yml` (`healthcheck`)      | Container liveness — `GET /health`, `restart: unless-stopped`        |
 | `.npmrc`                                  | `node-linker=hoisted` — required for pnpm to survive ZIP round-trips |
 | `.dockerignore`                           | Must re-include `!apps/**/.next/standalone/node_modules/**`          |
 

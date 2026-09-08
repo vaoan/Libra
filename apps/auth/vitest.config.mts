@@ -11,6 +11,23 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key",
+      // Stubs for the $secret: references in .env.dev that
+      // apps/auth/e2e/helpers/session.ts pulls in transitively (via its
+      // require of scripts/app-url-resolver.js -> scripts/load-root-env.cjs).
+      // load-root-env.cjs's CI-strict branch (CI=true) accepts any non-empty
+      // process.env value under the secret's own name — it never re-reads
+      // .secrets — so these values only need to be present, not real. Vitest
+      // writes `test.env` into process.env before test files (and their
+      // imports) run, so these are already set by the time session.ts's
+      // module body executes. Keeping them here (rather than in the CI
+      // workflow's env: block) keeps unit tests independent of real repo
+      // secrets, matching the Supabase stubs above.
+      CLERK_PUBLISHABLE_KEY: "test-clerk-publishable-key",
+      CLERK_SECRET_KEY: "sk_test_stub",
+      CLERK_DOMAIN: "test.clerk.accounts.dev",
+      TALLY_FORM_ID: "test-tally-form-id",
+      GOOGLE_TEST_EMAIL: "test@example.com",
+      GOOGLE_TEST_PASSWORD: "test-password",
     },
     include: ["**/*.test.{ts,tsx}"],
     passWithNoTests: true,

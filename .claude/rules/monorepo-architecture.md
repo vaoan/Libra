@@ -43,11 +43,6 @@ monorepo/
 │   │       └── shared/
 │   │           └── infrastructure/
 │   │               └── i18n/      # Admin's own translations
-│   └── playground/                # Incubation sandbox (NEVER DELETE)
-│       └── src/
-│           ├── app/
-│           ├── features/          # Experimental features being iterated
-│           └── shared/
 ├── packages/                      # Shared packages (consumed by apps)
 │   ├── api/                       # Generated API hooks, types, HTTP client
 │   │   └── src/
@@ -364,49 +359,6 @@ This means:
 - Same i18n strictness (no hardcoded strings)
 - Same architectural boundaries
 - Same import rules
-
----
-
-## Playground App: Incubation Sandbox
-
-> **NEVER delete the playground app or any of its features/components.**
-
-The `apps/playground` is a **permanent incubation sandbox** for experimenting with new ideas, prototyping features, and serving as a reference implementation for future projects.
-
-### Purpose
-
-| Role           | Description                                                         |
-| -------------- | ------------------------------------------------------------------- |
-| **Incubation** | New features are prototyped here before being promoted to web/admin |
-| **Reference**  | Serves as a living reference for patterns used in other projects    |
-| **Iteration**  | Ideas can be iterated freely without risk to production apps        |
-| **Promotion**  | When a feature is ready, it is extracted and moved to the real app  |
-
-### Rules
-
-| Rule                             | Description                                                                |
-| -------------------------------- | -------------------------------------------------------------------------- |
-| **Never delete features**        | Playground features are preserved as reference, even after promotion       |
-| **Never delete components**      | Components remain available for future reference and reuse                 |
-| **Relaxed quality expectations** | Playground may use hardcoded strings, simpler patterns for quick iteration |
-| **Same architecture structure**  | Follows Clean Architecture (features, layers) for consistency              |
-| **Independent from production**  | Playground features do NOT import from store/admin and vice versa          |
-
-### Workflow: Playground to Production
-
-```
-1. Prototype in playground     → Iterate quickly, experiment freely
-2. Validate the approach       → Test patterns, gather feedback
-3. Promote to production app   → Extract, refine, add i18n/tests
-4. Keep playground copy        → Remains as reference (NEVER delete)
-```
-
-### What Lives in Playground
-
-- Experimental integrations (chatbot, mining, SignalR notifications)
-- Proof-of-concept features not yet ready for production
-- Reference implementations of patterns for future projects
-- Technology spikes and exploratory work
 
 ---
 

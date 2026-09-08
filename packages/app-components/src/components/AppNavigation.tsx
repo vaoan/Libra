@@ -7,14 +7,7 @@ import { tid } from "../utils/tid";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
 
-type AppId =
-  | "store"
-  | "studio"
-  | "landing"
-  | "payments"
-  | "admin"
-  | "auth"
-  | "playground";
+type AppId = "store" | "studio" | "landing" | "payments" | "admin" | "auth";
 
 interface AppNavigationProps {
   currentApp: AppId;
@@ -34,7 +27,6 @@ const APP_ORDER: { id: AppId; labelKey: string }[] = [
   { id: "payments", labelKey: "payments" },
   { id: "admin", labelKey: "admin" },
   { id: "auth", labelKey: "auth" },
-  { id: "playground", labelKey: "playground" },
 ];
 
 const ADMIN_PERMISSIONS = [
@@ -63,10 +55,6 @@ const APP_ACCESS_RULES: Partial<
     mode: "any",
   },
   admin: {
-    required: ADMIN_PERMISSIONS,
-    mode: "any",
-  },
-  playground: {
     required: ADMIN_PERMISSIONS,
     mode: "any",
   },

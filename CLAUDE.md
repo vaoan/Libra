@@ -29,8 +29,7 @@ libra/
 │   ├── payments/                  # Payment processing
 │   ├── admin/                     # Back-office admin panel (must comply with store)
 │   ├── auth/                      # Authentication provider
-│   ├── studio/                    # Seller dashboard
-│   └── playground/                # Incubation sandbox (NEVER DELETE)
+│   └── studio/                    # Seller dashboard
 ├── packages/                      # Shared packages
 │   ├── api/                       # Generated API hooks, types, HTTP client
 │   ├── ui/                        # Shared UI components (shadcn/ui)
@@ -51,13 +50,12 @@ libra/
 
 ### Key Principles
 
-| Principle                   | Description                                           |
-| --------------------------- | ----------------------------------------------------- |
-| **Store is the standard**   | All apps must comply with store's rules               |
-| **Packages are pure**       | No i18n, no business logic, no app config             |
-| **Props injection**         | Apps inject translations into shared components       |
-| **Single ESLint**           | One config enforces rules across all workspaces       |
-| **Playground is permanent** | Incubation sandbox; iterate there, promote when ready |
+| Principle                 | Description                                     |
+| ------------------------- | ----------------------------------------------- |
+| **Store is the standard** | All apps must comply with store's rules         |
+| **Packages are pure**     | No i18n, no business logic, no app config       |
+| **Props injection**       | Apps inject translations into shared components |
+| **Single ESLint**         | One config enforces rules across all workspaces |
 
 > **Full documentation:** See [Monorepo Architecture](.claude/rules/monorepo-architecture.md) for complete monorepo patterns, package rules, and i18n strategy.
 
@@ -201,7 +199,7 @@ See [Environment System](docs/environment.md) for the full reference.
 | `pnpm lint:env`            | Verify all env files have the same keys |
 | `pnpm sync-secrets`        | Sync `.secrets` from GitHub             |
 
-Debug viewer: http://localhost:5003/en/env (requires `ENV_DEBUG=true` in env file)
+Debug viewer: http://localhost:5002/en/env (requires `ENV_DEBUG=true` in env file)
 
 ### Workspace Commands
 
@@ -224,15 +222,14 @@ Debug viewer: http://localhost:5003/en/env (requires `ENV_DEBUG=true` in env fil
 
 ### App Ports
 
-| App        | Port | Purpose                           |
-| ---------- | ---- | --------------------------------- |
-| auth       | 5000 | Authentication provider (`/auth`) |
-| store      | 5001 | Main storefront (`/store`)        |
-| admin      | 5002 | Back-office admin (`/admin`)      |
-| playground | 5003 | Sandbox (`/playground`)           |
-| landing    | 5004 | Public landing page (root `/`)    |
-| payments   | 5005 | Payment processing (`/payments`)  |
-| studio     | 5006 | Seller dashboard (`/studio`)      |
+| App      | Port | Purpose                           |
+| -------- | ---- | --------------------------------- |
+| auth     | 5000 | Authentication provider (`/auth`) |
+| store    | 5001 | Main storefront (`/store`)        |
+| admin    | 5002 | Back-office admin (`/admin`)      |
+| landing  | 5004 | Public landing page (root `/`)    |
+| payments | 5005 | Payment processing (`/payments`)  |
+| studio   | 5006 | Seller dashboard (`/studio`)      |
 
 ### Creating Features (in apps)
 

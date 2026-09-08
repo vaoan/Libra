@@ -24,9 +24,9 @@
 
 import path from "node:path";
 
-import { expect, test } from "@playwright/test";
 import type { BrowserContext, Page } from "@playwright/test";
 
+import { expect, test } from "./fixtures/autoCleanup";
 import { dragAndDrop } from "./helpers/drag";
 import {
   APP_URLS,
@@ -37,7 +37,6 @@ import {
   adminDelete,
   adminInsert,
   createTestUser,
-  deleteTestUser,
   injectSession,
   SELLER_PERMISSIONS,
   type TestUser,
@@ -205,9 +204,6 @@ test.describe.serial(
     test.afterAll(async () => {
       try {
         await adminDelete("products", `seller_id=eq.${seller.userId}`);
-      } catch {}
-      try {
-        await deleteTestUser(seller);
       } catch {}
     });
 

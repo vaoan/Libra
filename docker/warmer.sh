@@ -12,7 +12,6 @@ APPS="
 5000:/auth/en
 5001:/store/en
 5002:/admin/en
-5003:/playground/en
 5004:/en
 5005:/payments/en
 5006:/studio/en

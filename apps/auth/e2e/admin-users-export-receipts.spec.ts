@@ -1,15 +1,13 @@
 import { randomUUID } from "node:crypto";
 
-import { expect, test } from "@playwright/test";
-
 import { APP_URLS, ELEMENT_TIMEOUT_MS } from "./helpers/constants";
+import { expect, test } from "./fixtures/autoCleanup";
 import {
   ADMIN_PERMISSIONS,
   adminDelete,
   adminQuery,
   adminInsert,
   createTestUser,
-  deleteTestUser,
   injectSession,
   supabaseAdmin,
   type TestUser,
@@ -164,8 +162,6 @@ test.describe.serial("admin users export with receipts backup", () => {
   test.afterAll(async () => {
     await adminDelete("orders", `id=eq.${orderId}`).catch(() => {});
     await supabaseAdmin.storage.from("receipts").remove([storagePath]);
-    await deleteTestUser(adminUser);
-    await deleteTestUser(buyerUser);
   });
 
   test("downloads excel export with receipt file backup row", async ({

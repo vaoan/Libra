@@ -18,7 +18,7 @@ sellers ═══════════════╤════════
 ```
 
 **A multi-seller commerce platform for communities.**
-Tickets · merch · digital goods · services — seven Next.js apps, one Supabase database, one container.
+Tickets · merch · digital goods · services — six Next.js apps, one Supabase database, one container.
 
 <br>
 
@@ -66,7 +66,7 @@ Tickets · merch · digital goods · services — seven Next.js apps, one Supaba
 
 ## `01` — What Libra is
 
-Libra is a **multi-seller marketplace**, built as a pnpm workspace monorepo of seven
+Libra is a **multi-seller marketplace**, built as a pnpm workspace monorepo of six
 Next.js 16 applications sharing one Supabase Postgres database.
 
 It covers the full commerce loop: a seller lists a product, a buyer discovers it,
@@ -95,23 +95,21 @@ per-seller isolation are therefore enforced in the database, not in the UI.
 
 ---
 
-## `02` — The seven apps
+## `02` — The six apps
 
-| App            |  Port   | Route         | Audience   | Owns                                                     |
-| -------------- | :-----: | ------------- | ---------- | -------------------------------------------------------- |
-| **auth**       | `:5000` | `/auth`       | everyone   | Login, signup, Google & Discord OAuth, account settings   |
-| **store**      | `:5001` | `/store`      | buyers     | Catalog, search, filters, product detail, cart            |
-| **admin**      | `:5002` | `/admin`      | operators  | Users, permissions, templates, settings, audit, reports   |
-| **playground** | `:5003` | `/playground` | developers | Incubation sandbox — **never deleted**                    |
-| **landing**    | `:5004` | `/`           | public     | Marketing, legal pages                                    |
-| **payments**   | `:5005` | `/payments`   | both       | Checkout, orders, payment methods, receipts, reports      |
-| **studio**     | `:5006` | `/studio`     | sellers    | Products, orders, delegated seller admins                 |
+| App          |  Port   | Route       | Audience  | Owns                                                     |
+| ------------ | :-----: | ----------- | --------- | -------------------------------------------------------- |
+| **auth**     | `:5000` | `/auth`     | everyone  | Login, signup, Google & Discord OAuth, account settings   |
+| **store**    | `:5001` | `/store`    | buyers    | Catalog, search, filters, product detail, cart            |
+| **admin**    | `:5002` | `/admin`    | operators | Users, permissions, templates, settings, audit, reports   |
+| **landing**  | `:5004` | `/`         | public    | Marketing, legal pages                                    |
+| **payments** | `:5005` | `/payments` | both      | Checkout, orders, payment methods, receipts, reports      |
+| **studio**   | `:5006` | `/studio`   | sellers   | Products, orders, delegated seller admins                 |
 
 `apps/store` is the **reference implementation** — when apps disagree on a pattern,
-store wins. `apps/playground` is a permanent incubator: ideas are prototyped there,
-promoted into a real app when ready, and the playground copy is kept as reference.
+store wins.
 
-In production all seven run inside a **single container**, each in Next.js standalone
+In production all six run inside a **single container**, each in Next.js standalone
 mode, supervised by `supervisord`, fronted by an in-container nginx on `:8080` that
 routes by path prefix.
 
@@ -123,14 +121,13 @@ routes by path prefix.
 graph TB
     U["Buyer · Seller · Operator"]
 
-    subgraph Apps["7 × Next.js 16 · App Router"]
+    subgraph Apps["6 × Next.js 16 · App Router"]
         LAND["landing :5004"]
         AUTHAPP["auth :5000<br/>auth host"]
         STORE["store :5001"]
         PAY["payments :5005"]
         STUDIO["studio :5006"]
         ADMIN["admin :5002"]
-        PLAY["playground :5003"]
     end
 
     subgraph Pkgs["packages/*"]
@@ -330,11 +327,11 @@ Colors are OKLCH semantic tokens only — `text-destructive`, never `text-red-50
 | --------------------- | ------------------------------------------- |
 | Vitest 4              | Unit + component tests (**332 test files**) |
 | Testing Library       | Component testing                           |
-| MSW                   | API mocking (store, payments, admin, playground) |
+| MSW                   | API mocking (store, payments, admin)        |
 | Playwright            | E2E (**24 spec files**)                     |
 | `@faker-js/faker`     | Synthetic fixtures                          |
 | `fast-check`          | Property-based testing                      |
-| Sentry                | Error tracking in all seven apps            |
+| Sentry                | Error tracking in all six apps              |
 
 </details>
 
@@ -366,9 +363,9 @@ Colors are OKLCH semantic tokens only — `text-destructive`, never `text-red-50
 
 | Technology        | Role                                                        |
 | ----------------- | ----------------------------------------------------------- |
-| Docker            | One image, all seven apps, used for staging / E2E / prod     |
+| Docker            | One image, all six apps, used for staging / E2E / prod       |
 | nginx             | In-container reverse proxy on `:8080`, path-prefix routing   |
-| supervisord       | Supervises the seven standalone Next.js servers              |
+| supervisord       | Supervises the six standalone Next.js servers                |
 | Kong              | Supabase API gateway in the self-hosted Docker stack         |
 | Cloudflare Tunnel | Public URL without opening a port                            |
 | GitHub Actions    | CI, releases, secret sync, scheduled production backup       |
@@ -397,7 +394,6 @@ pnpm dev              # all 7 apps, .env.dev, Supabase Cloud dev project
 | Payments   | `http://localhost:5005/payments`   |
 | Studio     | `http://localhost:5006/studio`     |
 | Auth       | `http://localhost:5000/auth`       |
-| Playground | `http://localhost:5003/playground` |
 
 `pnpm dev` clears every `.next` cache first — stale caches and rotated env vars are a
 classic source of phantom bugs here.
@@ -405,11 +401,11 @@ classic source of phantom bugs here.
 **One app at a time:**
 
 ```bash
-pnpm --filter store dev        # or studio / admin / landing / payments / playground
+pnpm --filter store dev        # or studio / admin / landing / payments
 pnpm --filter auth-app dev     # note: the auth app's package name is auth-app
 ```
 
-**Env debug viewer** — `http://localhost:5003/en/env`, enabled by `ENV_DEBUG=true`
+**Env debug viewer** — `http://localhost:5002/en/env`, enabled by `ENV_DEBUG=true`
 (already on in `.env.dev`). It shows every resolved variable the apps actually see.
 
 ---
@@ -650,8 +646,8 @@ Manual / scheduled
 ### Production shape
 
 One image (`docker/prod/Dockerfile`, `node:22-alpine`), layered so the stable pieces —
-nginx config, supervisord config, the health watcher — sit *below* the volatile app
-layers and keep their hashes between builds. Inside:
+nginx config, supervisord config — sit *below* the volatile app layers and keep
+their hashes between builds. Inside:
 
 ```
 nginx :8080
@@ -660,12 +656,13 @@ nginx :8080
   ├─ /admin       → admin      :5002
   ├─ /auth        → auth       :5000
   ├─ /payments    → payments   :5005
-  ├─ /playground  → playground :5003
   ├─ /studio      → studio     :5006
   └─ /health      → container healthcheck
-supervisord → 7 × Next.js standalone servers
-watcher.mjs → route health polling, Telegram alerts
+supervisord → 6 × Next.js standalone servers
 ```
+
+Liveness is `docker compose`'s `healthcheck` (`GET /health`, `restart: unless-stopped`) —
+no in-container watcher process.
 
 The container runs hardened: `--cap-drop=ALL`, `--security-opt=no-new-privileges`,
 `--pids-limit=1024`, `--restart unless-stopped`.
@@ -700,7 +697,6 @@ app config, and be pure. Otherwise it belongs in that app's `shared/`.
 | Convention                | Rule                                                                                 |
 | ------------------------- | ------------------------------------------------------------------------------------ |
 | Store is the standard     | `apps/store` is the reference; other apps comply with it                             |
-| Playground is permanent   | Never delete features or components from `apps/playground`                           |
 | One component per file    | Enforced by `react/no-multi-comp`; shadcn `ui/` and test files are the only exceptions |
 | Absolute imports          | `@/features/…` across layers, never `../../`; same-directory `./x` is fine           |
 | URL state                 | Filters, pagination, tabs, sort → `nuqs` parsers in `domain/searchParams.ts`. Ephemeral UI → `useState` |
@@ -785,7 +781,6 @@ alone is not a valid conventional-commit type and the title check will reject it
 | [`docs/infrastructure.md`](docs/infrastructure.md)                                     | You are rebuilding the deploy environment       |
 | [`docs/production-incident-playbook.md`](docs/production-incident-playbook.md)         | Production is down and you need steps           |
 | [`docs/standards/checkout-stock-integrity.md`](docs/standards/checkout-stock-integrity.md) | You are touching cart, checkout or payment methods |
-| [`docs/standards/playground-standardization.md`](docs/standards/playground-standardization.md) | You are working in the playground        |
 | [`docs/adr/`](docs/adr/)                                                               | You want to know why a boundary exists          |
 | [`docs/hooks-ci-release/`](docs/hooks-ci-release/)                                     | You want the hooks → CI → release flow diagrams |
 | [`.claude/rules/`](.claude/rules/)                                                     | You want the enforceable version of a convention |

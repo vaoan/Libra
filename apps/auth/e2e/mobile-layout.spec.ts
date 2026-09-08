@@ -1,13 +1,13 @@
 import path from "node:path";
 
-import { devices, expect, test } from "@playwright/test";
+import { devices } from "@playwright/test";
 
+import { expect, test } from "./fixtures/autoCleanup";
 import {
   adminDelete,
   adminInsert,
   createTestUser,
   SELLER_PERMISSIONS,
-  deleteTestUser,
   injectSession,
 } from "./helpers/session";
 
@@ -191,8 +191,6 @@ test(
         "user_permissions",
         `user_id=eq.${seller.userId}`,
       ).catch(() => {});
-      await deleteTestUser(buyer).catch(() => {});
-      await deleteTestUser(seller).catch(() => {});
     }
   },
 );

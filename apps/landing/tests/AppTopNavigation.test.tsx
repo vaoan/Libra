@@ -37,7 +37,6 @@ const defaultProps = {
     auth: "/auth",
     payments: "/payments",
     studio: "/studio",
-    playground: "/playground",
   },
   locales: ["en", "es"] as const,
   userEmail: null,

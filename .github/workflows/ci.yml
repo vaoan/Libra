@@ -36,7 +36,6 @@ jobs:
       landing: ${{ steps.filter.outputs.landing }}
       payments: ${{ steps.filter.outputs.payments }}
       auth: ${{ steps.filter.outputs.auth }}
-      playground: ${{ steps.filter.outputs.playground }}
       packages: ${{ steps.filter.outputs.packages }}
       tooling: ${{ steps.filter.outputs.tooling }}
       docs-only: ${{ steps.check.outputs.docs-only }}
@@ -61,8 +60,6 @@ jobs:
               - 'apps/landing/**'
             payments:
               - 'apps/payments/**'
-            playground:
-              - 'apps/playground/**'
             packages:
               - 'packages/**'
             tooling:
@@ -240,7 +237,7 @@ jobs:
           node scripts/check-doc-references.mjs
           node scripts/check-css-sync.mjs
           node scripts/check-env-parity.mjs
-          pnpm exec madge --circular --extensions ts,tsx,js,jsx apps/store/src apps/studio/src apps/landing/src apps/payments/src apps/admin/src apps/auth/src apps/playground/src packages/ui/src packages/shared/src packages/api/src packages/app-components/src packages/auth/src tests scripts docker
+          pnpm exec madge --circular --extensions ts,tsx,js,jsx apps/store/src apps/studio/src apps/landing/src apps/payments/src apps/admin/src apps/auth/src packages/ui/src packages/shared/src packages/api/src packages/app-components/src packages/auth/src tests scripts docker
 
       # Ported from aeleos with one change: a symbol undocumented on both
       # sides is skipped. aeleos enforces jsdoc/require-jsdoc so every export
@@ -300,7 +297,6 @@ jobs:
             "${{ needs.changes.outputs.payments }}" \
             "${{ needs.changes.outputs.admin }}" \
             "${{ needs.changes.outputs.auth }}" \
-            "${{ needs.changes.outputs.playground }}" \
             "${{ needs.changes.outputs.packages }}" \
             "${{ needs.changes.outputs.tooling }}" \
             "${{ needs.changes.outputs.studio }}")
@@ -332,7 +328,6 @@ jobs:
             "${{ needs.changes.outputs.payments }}" \
             "${{ needs.changes.outputs.admin }}" \
             "${{ needs.changes.outputs.auth }}" \
-            "${{ needs.changes.outputs.playground }}" \
             "${{ needs.changes.outputs.packages }}" \
             "${{ needs.changes.outputs.tooling }}" \
             "${{ needs.changes.outputs.studio }}")
@@ -392,7 +387,6 @@ jobs:
             "${{ needs.changes.outputs.payments }}" \
             "${{ needs.changes.outputs.admin }}" \
             "${{ needs.changes.outputs.auth }}" \
-            "${{ needs.changes.outputs.playground }}" \
             "${{ needs.changes.outputs.packages }}" \
             "${{ needs.changes.outputs.tooling }}" \
             "${{ needs.changes.outputs.studio }}")
@@ -500,7 +494,6 @@ jobs:
             NEXT_PUBLIC_AUTH_HOST_URL=http://localhost:5050/auth
             NEXT_PUBLIC_STORE_URL=http://localhost:5050/store
             NEXT_PUBLIC_ADMIN_URL=http://localhost:5050/admin
-            NEXT_PUBLIC_PLAYGROUND_URL=http://localhost:5050/playground
             NEXT_PUBLIC_LANDING_URL=http://localhost:5050
             NEXT_PUBLIC_PAYMENTS_URL=http://localhost:5050/payments
             NEXT_PUBLIC_STUDIO_URL=http://localhost:5050/studio
@@ -663,7 +656,6 @@ jobs:
             "${{ needs.changes.outputs.payments }}" \
             "${{ needs.changes.outputs.admin }}" \
             "${{ needs.changes.outputs.auth }}" \
-            "${{ needs.changes.outputs.playground }}" \
             "${{ needs.changes.outputs.packages }}" \
             "${{ needs.changes.outputs.tooling }}" \
             "${{ needs.changes.outputs.studio }}")
@@ -750,6 +742,46 @@ jobs:
           name: playwright-report-payments
           path: apps/payments/playwright-report/
           retention-days: 7
+
+      - name: Sweep leaked Clerk test users (fail-safe)
+        # This is NOT the cleanup mechanism -- createTestUser registers users
+        # and a worker-scoped Playwright fixture drains them on every normal
+        # run. This step exists only for what that in-process teardown cannot
+        # cover: a killed runner, an OOM, a hard cancellation. `if: always()`
+        # so it still runs when the job above failed or was cancelled. In
+        # normal operation it must find nothing to delete.
+        #
+        # The sweeper only reads CLERK_SECRET_KEY, but it loads via
+        # scripts/load-env.mjs (TARGET_ENV defaults to "dev"), which resolves
+        # every $secret: reference in .env.dev under CI=true -- not just the
+        # one this step cares about -- so all of .env.dev's Clerk/Tally/Google
+        # secrets must be present here or load-env.mjs fails loudly on the
+        # first one that isn't (see .env.dev and load-env.mjs's CI branch).
+        #
+        # continue-on-error: a fail-safe must never be able to fail the
+        # build. The listing loop inside the script already logs and exits 0
+        # on its own failure; this is the second, independent layer in case
+        # something else in the step (network setup, node itself) fails
+        # first.
+        #
+        # --older-than-hours 2 is a deliberate anti-race window, not a bug:
+        # without it, this step could delete a user another concurrent PR run
+        # just created and hasn't drained yet. The tradeoff is that a leak
+        # from the job this step follows is never itself a candidate --
+        # `to delete (e2e): 0` here means "nothing old enough", not "nothing
+        # leaked". A genuine leak from this run only becomes visible (and
+        # gets swept) on the next run that's at least 2 hours later, so the
+        # invariant this step polices holds one run late, never immediately.
+        if: always()
+        continue-on-error: true
+        run: node scripts/clerk-sweep-e2e-users.mjs --older-than-hours 2
+        env:
+          CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          CLERK_DOMAIN: ${{ secrets.CLERK_DOMAIN }}
+          TALLY_FORM_ID: ${{ secrets.TALLY_FORM_ID }}
+          GOOGLE_TEST_EMAIL: ${{ secrets.GOOGLE_TEST_EMAIL }}
+          GOOGLE_TEST_PASSWORD: ${{ secrets.GOOGLE_TEST_PASSWORD }}
 
   # ============================================
   # Bundle Analysis

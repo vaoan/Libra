@@ -21,7 +21,7 @@
     "fix:staged": "lint-staged --concurrent false",
     "fix:all": "pnpm format && pnpm lint --fix",
     "check:style": "stylelint \"apps/*/src/**/*.css\" \"packages/*/src/**/*.css\" && node scripts/check-css-sync.mjs",
-    "check:tools": "pnpm cspell \"apps/*/src/**/*.{ts,tsx,js,jsx,md}\" \"packages/*/src/**/*.{ts,tsx}\" && pnpm knip && pnpm jscpd apps/store/src apps/studio/src apps/landing/src apps/payments/src apps/admin/src apps/auth/src apps/playground/src packages/ui/src packages/shared/src packages/api/src packages/app-components/src packages/auth/src && pnpm ls-lint && pnpm madge --circular --extensions ts,tsx,js,jsx apps/store/src apps/studio/src apps/landing/src apps/payments/src apps/admin/src apps/auth/src apps/playground/src packages/ui/src packages/shared/src packages/api/src packages/app-components/src packages/auth/src && pnpm sherif && pnpm syncpack lint",
+    "check:tools": "pnpm cspell \"apps/*/src/**/*.{ts,tsx,js,jsx,md}\" \"packages/*/src/**/*.{ts,tsx}\" && pnpm knip && pnpm jscpd apps/store/src apps/studio/src apps/landing/src apps/payments/src apps/admin/src apps/auth/src packages/ui/src packages/shared/src packages/api/src packages/app-components/src packages/auth/src && pnpm ls-lint && pnpm madge --circular --extensions ts,tsx,js,jsx apps/store/src apps/studio/src apps/landing/src apps/payments/src apps/admin/src apps/auth/src packages/ui/src packages/shared/src packages/api/src packages/app-components/src packages/auth/src && pnpm sherif && pnpm syncpack lint",
     "sherif": "sherif",
     "sherif:fix": "sherif --fix",
     "syncpack:lint": "syncpack lint",

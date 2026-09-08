@@ -65,9 +65,8 @@ GCP VM (libra-prod, us-central1-a, 35.238.125.109)
         │   ├─ /admin     → admin      :5002
         │   ├─ /auth      → auth       :5000
         │   ├─ /payments  → payments   :5005
-        │   ├─ /playground→ playground :5003
         │   └─ /studio    → studio     :5006
-        └─ supervisord (7 Next.js standalone servers)
+        └─ supervisord (6 Next.js standalone servers)
               │
               ▼
         Cloudflare Tunnel → store.furrycolombia.com (SSL)
@@ -142,7 +141,7 @@ Single-stage image based on `node:22-alpine`. Layer order is optimized for cache
 ```
 1. RUN apk add (nginx, supervisor, netcat)    — stable, rarely changes
 2. COPY nginx.conf, supervisord.conf,          — stable config files
-        watcher.mjs, boot-reporter.mjs         (placed BEFORE app layers)
+        boot-reporter.mjs, warmer.sh           (placed BEFORE app layers)
 3. COPY apps/*/standalone, static, public      — volatile (changes every deploy)
 4. RUN rm stub node_modules + chown           — always runs
 ```
@@ -299,7 +298,6 @@ NEXT_PUBLIC_AUTH_URL=https://store.furrycolombia.com/auth
 NEXT_PUBLIC_LANDING_URL=https://store.furrycolombia.com
 NEXT_PUBLIC_PAYMENTS_URL=https://store.furrycolombia.com/payments
 NEXT_PUBLIC_STUDIO_URL=https://store.furrycolombia.com/studio
-NEXT_PUBLIC_PLAYGROUND_URL=https://store.furrycolombia.com/playground
 NEXT_PUBLIC_API_PREFIX=/api
 NEXT_PUBLIC_ENABLE_MOCKS=false
 ```
@@ -350,24 +348,23 @@ Google credentials are also registered in Google Cloud Console with the Supabase
 
 ## GitHub Secrets
 
-| Secret                          | Value                                        |
-| ------------------------------- | -------------------------------------------- |
-| `PROD_SERVER_HOST`              | `ssh.furrycolombia.com`                      |
-| `PROD_SERVER_USER`              | `furrycolombia`                              |
-| `PROD_SERVER_SSH_KEY`           | ED25519 private key (full PEM)               |
-| `WEBHOOK_SECRET`                | HMAC secret shared with GitHub webhook       |
-| `NEXT_PUBLIC_STORE_URL`         | `https://store.furrycolombia.com/store`      |
-| `NEXT_PUBLIC_ADMIN_URL`         | `https://store.furrycolombia.com/admin`      |
-| `NEXT_PUBLIC_AUTH_HOST_URL`     | `https://store.furrycolombia.com/auth`       |
-| `NEXT_PUBLIC_AUTH_URL`          | `https://store.furrycolombia.com/auth`       |
-| `NEXT_PUBLIC_LANDING_URL`       | `https://store.furrycolombia.com`            |
-| `NEXT_PUBLIC_PAYMENTS_URL`      | `https://store.furrycolombia.com/payments`   |
-| `NEXT_PUBLIC_STUDIO_URL`        | `https://store.furrycolombia.com/studio`     |
-| `NEXT_PUBLIC_PLAYGROUND_URL`    | `https://store.furrycolombia.com/playground` |
-| `NEXT_PUBLIC_API_PREFIX`        | `/api`                                       |
-| `NEXT_PUBLIC_ENABLE_MOCKS`      | `false`                                      |
-| `NEXT_PUBLIC_SUPABASE_URL`      | `https://olafyajipvsltohagiah.supabase.co`   |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key                            |
+| Secret                          | Value                                      |
+| ------------------------------- | ------------------------------------------ |
+| `PROD_SERVER_HOST`              | `ssh.furrycolombia.com`                    |
+| `PROD_SERVER_USER`              | `furrycolombia`                            |
+| `PROD_SERVER_SSH_KEY`           | ED25519 private key (full PEM)             |
+| `WEBHOOK_SECRET`                | HMAC secret shared with GitHub webhook     |
+| `NEXT_PUBLIC_STORE_URL`         | `https://store.furrycolombia.com/store`    |
+| `NEXT_PUBLIC_ADMIN_URL`         | `https://store.furrycolombia.com/admin`    |
+| `NEXT_PUBLIC_AUTH_HOST_URL`     | `https://store.furrycolombia.com/auth`     |
+| `NEXT_PUBLIC_AUTH_URL`          | `https://store.furrycolombia.com/auth`     |
+| `NEXT_PUBLIC_LANDING_URL`       | `https://store.furrycolombia.com`          |
+| `NEXT_PUBLIC_PAYMENTS_URL`      | `https://store.furrycolombia.com/payments` |
+| `NEXT_PUBLIC_STUDIO_URL`        | `https://store.furrycolombia.com/studio`   |
+| `NEXT_PUBLIC_API_PREFIX`        | `/api`                                     |
+| `NEXT_PUBLIC_ENABLE_MOCKS`      | `false`                                    |
+| `NEXT_PUBLIC_SUPABASE_URL`      | `https://olafyajipvsltohagiah.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key                          |
 
 ## GitHub Webhook
 
@@ -514,7 +511,6 @@ NEXT_PUBLIC_AUTH_URL=https://store.furrycolombia.com/auth
 NEXT_PUBLIC_LANDING_URL=https://store.furrycolombia.com
 NEXT_PUBLIC_PAYMENTS_URL=https://store.furrycolombia.com/payments
 NEXT_PUBLIC_STUDIO_URL=https://store.furrycolombia.com/studio
-NEXT_PUBLIC_PLAYGROUND_URL=https://store.furrycolombia.com/playground
 NEXT_PUBLIC_API_PREFIX=/api
 NEXT_PUBLIC_ENABLE_MOCKS=false
 EOF

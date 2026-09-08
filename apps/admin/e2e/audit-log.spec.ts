@@ -1,10 +1,8 @@
-import { expect, test } from "@playwright/test";
-
 import { ELEMENT_TIMEOUT_MS } from "../../auth/e2e/helpers/constants";
+import { expect, test } from "../../auth/e2e/fixtures/autoCleanup";
 import {
   ADMIN_PERMISSIONS,
   createTestUser,
-  deleteTestUser,
   injectSession,
   type TestUser,
 } from "../../auth/e2e/helpers/session";
@@ -24,10 +22,6 @@ test.describe.serial("Audit Log page", () => {
 
   test.beforeAll(async () => {
     adminUser = await createTestUser("audit-log-e2e", ADMIN_PERMISSIONS);
-  });
-
-  test.afterAll(async () => {
-    await deleteTestUser(adminUser).catch(() => {});
   });
 
   // ─── Page structure ──────────────────────────────────────────────
@@ -143,23 +137,19 @@ test.describe.serial("Audit Log page", () => {
       ...ADMIN_PERMISSIONS.filter((p) => p !== "audit.read"),
     ]);
 
-    try {
-      await injectSession(context, limitedUser);
-      await page.goto(`${getAdminBaseUrl()}/en/audit`);
+    await injectSession(context, limitedUser);
+    await page.goto(`${getAdminBaseUrl()}/en/audit`);
 
-      // A user without audit.read gets the access-denied state, so there is a
-      // positive thing to wait for. Asserting that it appears is also a
-      // stronger claim than the absence below: absence alone is satisfied by a
-      // page that never rendered, which is why this used to need a
-      // networkidle wait to mean anything.
-      await expect(page.getByTestId("access-denied")).toBeVisible({
-        timeout: ELEMENT_TIMEOUT_MS,
-      });
+    // A user without audit.read gets the access-denied state, so there is a
+    // positive thing to wait for. Asserting that it appears is also a
+    // stronger claim than the absence below: absence alone is satisfied by a
+    // page that never rendered, which is why this used to need a
+    // networkidle wait to mean anything.
+    await expect(page.getByTestId("access-denied")).toBeVisible({
+      timeout: ELEMENT_TIMEOUT_MS,
+    });
 
-      // And the audit content itself must not be there.
-      await expect(page.getByTestId("audit-log-page")).toBeHidden();
-    } finally {
-      await deleteTestUser(limitedUser).catch(() => {});
-    }
+    // And the audit content itself must not be there.
+    await expect(page.getByTestId("audit-log-page")).toBeHidden();
   });
 });

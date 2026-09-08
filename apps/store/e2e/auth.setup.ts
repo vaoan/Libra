@@ -4,6 +4,8 @@ import path from "node:path";
 import { clerk, clerkSetup } from "@clerk/testing/playwright";
 import { expect, test as setup } from "@playwright/test";
 
+import { assertNotProductionClerk } from "../../auth/e2e/helpers/guardEnv";
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { resolveE2EAppUrls } = require(
   path.resolve(__dirname, "../../../scripts/app-url-resolver.js"),
@@ -28,6 +30,7 @@ if (!CLERK_SECRET_KEY)
   throw new Error(
     "CLERK_SECRET_KEY is not set. Ensure the correct .env.* file is loaded.",
   );
+assertNotProductionClerk(CLERK_SECRET_KEY);
 
 const AUTH_FILE = "e2e/.auth/session.json";
 const USER_FILE = path.join(path.dirname(AUTH_FILE), "user.json");

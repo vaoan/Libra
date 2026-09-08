@@ -32,11 +32,6 @@ services:
       # These are only injected when the variables are set in the host env.
       - SUPABASE_URL_INTERNAL=${SUPABASE_URL_INTERNAL:-}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
-      # Telegram alerting for the in-container health watcher (optional).
-      # Set both variables to enable; leave empty to keep alerts disabled.
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
-      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
-      - SERVER_HOSTNAME=${HOSTNAME:-libra-prod}
     extra_hosts:
       # Allow the container to reach host-local services (e.g. Supabase on
       # localhost:64321) via host.docker.internal on Linux/Windows/Mac.

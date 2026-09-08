@@ -35,7 +35,6 @@ const APPS = [
   { name: "auth", path: "/auth/health" },
   { name: "store", path: "/store/health" },
   { name: "admin", path: "/admin/health" },
-  { name: "playground", path: "/playground/health" },
   { name: "landing", path: "/en" },
   { name: "payments", path: "/payments/health" },
   { name: "studio", path: "/studio/health" },

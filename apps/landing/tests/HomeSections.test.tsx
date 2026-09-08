@@ -34,7 +34,6 @@ vi.mock("@/shared/infrastructure/config", () => ({
     admin: "/admin",
     studio: "/studio",
     landing: "/",
-    playground: "/playground",
   },
 }));
 

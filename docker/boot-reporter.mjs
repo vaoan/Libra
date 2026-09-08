@@ -50,7 +50,6 @@ const APPS = [
   { name: "auth", port: 5000 },
   { name: "store", port: 5001 },
   { name: "admin", port: 5002 },
-  { name: "playground", port: 5003 },
   { name: "landing", port: 5004 },
   { name: "payments", port: 5005 },
   { name: "studio", port: 5006 },
