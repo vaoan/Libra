@@ -11,10 +11,19 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key",
+      // Take load-root-env.cjs's CI-strict branch, always. Without this the
+      // loader falls into its local branch, which requires a `.secrets` file
+      // to exist on disk — so these tests passed in CI and in a normal clone
+      // but threw "Missing .secrets file" anywhere that file is absent: a git
+      // worktree (`.secrets` is gitignored, so it never gets copied into one),
+      // a fresh clone before `pnpm sync-secrets`, or a contributor without
+      // secret access. A unit test should not need real secrets to run, and
+      // the stubs below only work under this branch.
+      CI: "true",
       // Stubs for the $secret: references in .env.dev that
       // apps/auth/e2e/helpers/session.ts pulls in transitively (via its
       // require of scripts/app-url-resolver.js -> scripts/load-root-env.cjs).
-      // load-root-env.cjs's CI-strict branch (CI=true) accepts any non-empty
+      // load-root-env.cjs's CI-strict branch accepts any non-empty
       // process.env value under the secret's own name — it never re-reads
       // .secrets — so these values only need to be present, not real. Vitest
       // writes `test.env` into process.env before test files (and their
