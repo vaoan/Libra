@@ -61,7 +61,8 @@
     "check:a11y-patterns": "node scripts/check-a11y-patterns.mjs",
     "check:boundaries": "node scripts/check-feature-boundaries.mjs",
     "check:doc-refs": "node scripts/check-doc-references.mjs",
-    "check:docs": "node scripts/check-doc-freshness.mjs"
+    "check:docs": "node scripts/check-doc-freshness.mjs",
+    "codemod:kebab": "node scripts/codemod-kebab-filenames.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -106,6 +107,7 @@
     "supabase": "^2.95.5",
     "syncpack": "^14.3.1",
     "tailwindcss": "^4.2.4",
+    "ts-morph": "^28.0.0",
     "turbo": "^2.9.6",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5"
