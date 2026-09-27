@@ -5,7 +5,7 @@ import { clerk, clerkSetup } from "@clerk/testing/playwright";
 import type { BrowserContext } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
-import { assertNotProductionClerk } from "./guardEnv";
+import { assertNotProductionClerk, productionGuardContext } from "./guardEnv";
 import { attachProfileId, registerClerkUser } from "./userRegistry";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- shared Node helper
@@ -50,7 +50,7 @@ if (!CLERK_SECRET_KEY)
     "CLERK_SECRET_KEY is not set. Ensure the correct .env.* file is loaded.",
   );
 const CLERK_SECRET_KEY_VALUE: string = CLERK_SECRET_KEY;
-assertNotProductionClerk(CLERK_SECRET_KEY_VALUE);
+assertNotProductionClerk(CLERK_SECRET_KEY_VALUE, productionGuardContext());
 
 const AUTH_URL: string = resolveE2EAppUrls().auth;
 
