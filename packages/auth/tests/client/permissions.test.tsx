@@ -184,9 +184,13 @@ describe("useCurrentUserPermissions — cache write on fetch", () => {
 
     const { result } = renderHook(() => useCurrentUserPermissions());
 
-    await waitFor(() => expect(mockWriteCache).toHaveBeenCalled());
+    // Wait for the write that carries the fetched keys, not merely the first
+    // write: under CI load the hook's earlier empty write can land first, and
+    // asserting on "was called" then reads [] (seen on PR #416).
+    await waitFor(() =>
+      expect(mockWriteCache).toHaveBeenCalledWith(["products.create"]),
+    );
 
-    expect(mockWriteCache).toHaveBeenCalledWith(["products.create"]);
     expect(result.current.grantedKeys).toEqual(["products.create"]);
   });
 
