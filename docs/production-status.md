@@ -170,6 +170,35 @@ Once that token exists:
    `<tunnel-uuid>.cfargotunnel.com`, proxied.
 5. **Verify** the hostname returns `200`, not `530`.
 
+### Clerk production instance and the Supabase side effect
+
+The apps assume one Clerk instance on one domain. Nothing in code changes for
+production; these are dashboard steps, done once, before the first
+authenticated request.
+
+1. In Clerk, create the production instance with primary domain
+   `store.furrycolombia.com`. Clerk lists the DNS records it needs — a
+   frontend-API CNAME (`clerk.store.furrycolombia.com`), plus account-portal
+   and email records if those features are used. Create them in the
+   `furrycolombia.com` Cloudflare zone as **DNS-only** records.
+2. Copy the production publishable key, secret key and frontend-API domain into
+   the repository secrets `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` and
+   `CLERK_DOMAIN`. `.env.prod` already references all three.
+3. In Clerk, set the sign-in, sign-up and after-sign-in paths under
+   `/auth/<locale>/...`, matching the auth app's `basePath`.
+4. **Change `SUPABASE_CLERK_DOMAIN` in `.env.prod`** from the development
+   `regular-puma-47.clerk.accounts.dev` host to the production frontend-API
+   domain, and set the same value on the production Supabase project's
+   third-party-auth provider. Supabase trusts Clerk tokens by issuer domain: if
+   this step is skipped, every authenticated Supabase call falls back to the
+   anon key and returns nothing, with no error.
+5. Restrict Clerk's allowed redirect origins to
+   `https://store.furrycolombia.com`.
+
+Dev and staging keep the development instance, which already works on
+`localhost` and on the staging tunnel hostname. No satellite domains are
+needed anywhere: every app shares the one origin.
+
 ### Decide these before starting
 
 - **The host would be the workstation**, so the store is online only while that

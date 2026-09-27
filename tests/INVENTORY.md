@@ -6,7 +6,7 @@ Every test case in the repo, so a refactor can be checked for losses:
 regenerate and diff. Counting files or totals is not enough -- a rework
 can keep both and still drop the one assertion that mattered.
 
-**2749 cases across 379 files** (0 skipped, 9 parameterised).
+**2750 cases across 381 files** (0 skipped, 9 parameterised).
 
 Source-level cases: a `.each` case is one entry here and many in vitest
 output, so this total is deliberately not the runner total.
@@ -800,7 +800,7 @@ output, so this total is deliberately not the runner total.
 - useUsers > calls listUsers with correct parameters and returns data
 - useUsers > handles empty responses correctly
 
-## app:auth -- 85 cases
+## app:auth -- 92 cases
 
 ### `apps/auth/tests/AccountSettingsPage.test.tsx`
 
@@ -812,9 +812,25 @@ output, so this total is deliberately not the runner total.
 - AccountSettingsPage > renders page title
 - AccountSettingsPage > calls signOut when sign out button is clicked
 
+### `apps/auth/tests/autoCleanup.test.ts`
+
+- test user registry > registry accumulates and drains
+- test user registry > drain continues past a failing deletion
+- test user registry > drains a profile-less entry via the Clerk-only fallback
+
+### `apps/auth/tests/clerk-test-email-convention.test.ts`
+
+- assertNotProductionClerk > throws on a live secret key
+- assertNotProductionClerk > allows a test secret key
+- createTestUser's real template carries +clerk_test
+
 ### `apps/auth/tests/constants.test.ts`
 
 - account domain constants > defines PROFILE_QUERY_KEY
+
+### `apps/auth/tests/createTestUserOrdering.test.ts`
+
+- createTestUser registration ordering > registers the Clerk user before the profile RPC can throw
 
 ### `apps/auth/tests/LoginPage.test.tsx`
 
@@ -962,7 +978,7 @@ output, so this total is deliberately not the runner total.
 - TermsPage > renders a last-updated line
 - TermsPage > renders all 10 section headings
 
-## app:payments -- 573 cases
+## app:payments -- 572 cases
 
 ### `apps/payments/tests/ActionButtons.test.tsx`
 
@@ -1011,9 +1027,8 @@ output, so this total is deliberately not the runner total.
 - readCartFromCookie > returns the memoized snapshot when the raw cookie value has not changed
 - clearCartCookie > deletes the cart cookie with path /
 - clearCartCookie > notifies listeners after clearing the cart cookie
-- clearCartCookie > includes shared domain when hostname has multiple parts
-- clearCartCookie > omits domain when hostname has fewer than two parts
-- clearCartCookie > skips domain computation and does not dispatch event when window is undefined
+- clearCartCookie > never sets a domain attribute, even on a multi-segment hostname
+- clearCartCookie > still clears the cookie when window is undefined
 - subscribeToCartCookie > returns a callable no-op when window is not available
 - subscribeToCartCookie > does not call onStoreChange when visibilityState is not visible
 
@@ -1771,7 +1786,7 @@ output, so this total is deliberately not the runner total.
 - toYouTubeEmbedUrl > handles embed URL with http scheme
 - toYouTubeEmbedUrl > handles video IDs with hyphens and underscores
 
-## app:store -- 331 cases
+## app:store -- 330 cases
 
 ### `apps/store/tests/AccordionItem.test.tsx`
 
@@ -1845,16 +1860,14 @@ output, so this total is deliberately not the runner total.
 
 - COOKIE_MAX_AGE_S > equals 30 days in seconds
 - getCartCookieOptions — server-side (no window) > returns secure: false and no domain when window is undefined
-- getCartCookieOptions — browser (with window) > returns secure: true on https and includes domain when resolveSharedCookieDomain returns one
+- getCartCookieOptions — browser (with window) > returns secure: true on https
 - getCartCookieOptions — browser (with window) > returns secure: false on http
-- getCartCookieOptions — browser (with window) > omits domain when getSharedCookieDomain returns undefined
+- getCartCookieOptions — browser (with window) > never sets a domain, even on a multi-segment hostname
 - persistCartCookie > calls setCookie with serialized cart items
-- persistCartCookie > calls deleteCookie first when domain is set (to clear root-path cookie)
-- persistCartCookie > does not call deleteCookie when domain is not set
+- persistCartCookie > never deletes before setting, on any hostname
 - persistCartCookie > includes maxAge in setCookie options
 - removeCartCookie > calls deleteCookie with cookie options
-- removeCartCookie > calls deleteCookie twice when domain is set (once with domain, once root path)
-- removeCartCookie > calls deleteCookie only once when no domain
+- removeCartCookie > deletes exactly once with host-only options, on any hostname
 
 ### `apps/store/tests/CartDrawer.items.test.tsx`
 
@@ -1998,6 +2011,7 @@ output, so this total is deliberately not the runner total.
 - ImageGallery > renders main image when images exist
 - ImageGallery > renders thumbnails for multiple images
 - ImageGallery > does not render thumbnails for single image
+- ImageGallery > labels thumbnails and the main image when an image's alt is empty
 - ImageGallery > changes active image when thumbnail is clicked
 - ImageGallery > handles object-format images
 - ImageGallery > renders featured ribbon on images when featured
@@ -3239,7 +3253,7 @@ output, so this total is deliberately not the runner total.
 - tid > handles options object with all properties
 - tid > returns empty object for options in production
 
-## package:auth -- 94 cases
+## package:auth -- 92 cases
 
 ### `packages/auth/tests/client/permCachePersistence.test.ts`
 
@@ -3250,11 +3264,9 @@ output, so this total is deliberately not the runner total.
 - readPermCache > returns null when cookie holds a non-array JSON value
 - readPermCache > returns null when cookie holds an array with non-string items
 - writePermCache > calls setCookie with the key, JSON-stringified keys, and maxAge 3600
-- writePermCache > does NOT pre-delete when domain is undefined (localhost dev)
-- writePermCache > pre-deletes the no-domain cookie before setting when domain is present
+- writePermCache > never pre-deletes and never sets a domain, on any hostname
 - writePermCache > does NOT call setCookie when serialised payload exceeds 3500 bytes
-- clearPermCache > calls deleteCookie once with base options when domain is undefined
-- clearPermCache > calls deleteCookie twice when domain is present (double-delete pattern)
+- clearPermCache > deletes exactly once with host-only options, on any hostname
 
 ### `packages/auth/tests/client/permissions.test.tsx`
 
@@ -3359,7 +3371,7 @@ output, so this total is deliberately not the runner total.
 - isTokenActive with standard JWT format > prefers internal token format over JWT when decodable
 - encodeAuthToken / decodeAuthToken roundtrip > roundtrips a valid payload
 
-## package:shared -- 199 cases
+## package:shared -- 197 cases
 
 ### `packages/shared/tests/api.test.ts`
 
@@ -3377,6 +3389,9 @@ output, so this total is deliberately not the runner total.
 - ApiAuthBootstrap > registers access token getter on mount
 - ApiAuthBootstrap > registers refresh token callback on mount
 - ApiAuthBootstrap > registers onUnauthorized callback on mount
+- ApiAuthBootstrap > onUnauthorized redirect (auth host lives under a path on the one origin) > keeps the auth host's path when it is an absolute URL
+- ApiAuthBootstrap > onUnauthorized redirect (auth host lives under a path on the one origin) > resolves a root-relative auth host against the current origin
+- ApiAuthBootstrap > onUnauthorized redirect (auth host lives under a path on the one origin) > tolerates a trailing slash on the auth host
 - ApiAuthBootstrap > cleans up callbacks on unmount
 
 ### `packages/shared/tests/appUrls.property.test.ts`
@@ -3387,7 +3402,7 @@ output, so this total is deliberately not the runner total.
 
 ### `packages/shared/tests/appUrls.test.ts`
 
-- appUrls > uses local app URLs by default in development
+- appUrls > falls back to relative same-origin paths in development too
 - appUrls > uses relative same-domain paths by default in production
 - appUrls > lets explicit NEXT_PUBLIC app URLs override the defaults
 - appUrls > uses NEXT_PUBLIC_*_URL values in production when set
@@ -3402,14 +3417,6 @@ output, so this total is deliberately not the runner total.
 - BuildVersion > uses custom formatLabel when provided
 - BuildVersion > uses default label format when formatLabel is not provided
 - BuildVersion > handles short hash input
-
-### `packages/shared/tests/cookieDomain.test.ts`
-
-- getSharedCookieDomain > returns undefined for 'localhost'
-- getSharedCookieDomain > returns undefined for '127.0.0.1'
-- getSharedCookieDomain > returns undefined for a single-segment hostname
-- getSharedCookieDomain > returns '.example.com' for 'app.example.com'
-- getSharedCookieDomain > returns '.example.com' for 'sub1.sub2.example.com'
 
 ### `packages/shared/tests/environment.test.ts`
 

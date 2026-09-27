@@ -199,7 +199,7 @@ See [Environment System](docs/environment.md) for the full reference.
 | `pnpm lint:env`            | Verify all env files have the same keys |
 | `pnpm sync-secrets`        | Sync `.secrets` from GitHub             |
 
-Debug viewer: http://localhost:5002/en/env (requires `ENV_DEBUG=true` in env file)
+Debug viewer: http://localhost:5050/admin/en/env (requires `ENV_DEBUG=true` in env file)
 
 ### Workspace Commands
 

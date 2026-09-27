@@ -7,28 +7,19 @@ import {
 } from "../constants";
 
 const PERM_MAX_AGE = 3600;
-const MINIMUM_DOMAIN_SEGMENTS = 2;
-const DOMAIN_SUFFIX_SEGMENT_OFFSET = -2;
 
-function getSharedCookieDomain(hostname: string): string | undefined {
-  if (hostname === "localhost" || hostname === "127.0.0.1") return undefined;
-  const parts = hostname.split(".");
-  if (parts.length < MINIMUM_DOMAIN_SEGMENTS) return undefined;
-  return `.${parts.slice(DOMAIN_SUFFIX_SEGMENT_OFFSET).join(".")}`;
-}
-
+/**
+ * Host-only cookie options. Every app shares one origin, so the cookie needs
+ * no `domain` attribute — and must not have one, or it would be readable by
+ * unrelated sites on sibling subdomains.
+ */
 function getPermCookieOptions() {
   const isSecure =
     globalThis.window !== undefined &&
     globalThis.location.protocol === "https:";
-  let sharedDomain: string | undefined;
-  if (globalThis.window !== undefined) {
-    sharedDomain = getSharedCookieDomain(globalThis.location.hostname);
-  }
 
   return {
     path: "/",
-    ...(sharedDomain ? { domain: sharedDomain } : {}),
     sameSite: "lax" as const,
     secure: isSecure,
   };
@@ -52,20 +43,12 @@ export function writePermCache(keys: string[]): void {
     // skip the write so we fall back to a fresh DB fetch on next navigation.
     return;
   }
-  const options = getPermCookieOptions();
-  if (options.domain) {
-    deleteCookie(PERM_COOKIE_KEY, { path: "/" });
-  }
   setCookie(PERM_COOKIE_KEY, serialised, {
-    ...options,
+    ...getPermCookieOptions(),
     maxAge: PERM_MAX_AGE,
   });
 }
 
 export function clearPermCache(): void {
-  const options = getPermCookieOptions();
-  deleteCookie(PERM_COOKIE_KEY, options);
-  if (options.domain !== undefined) {
-    deleteCookie(PERM_COOKIE_KEY, { path: "/" });
-  }
+  deleteCookie(PERM_COOKIE_KEY, getPermCookieOptions());
 }

@@ -44,7 +44,10 @@ async function doRefresh(authHostUrl: string): Promise<boolean> {
 }
 
 /**
- * Registers API auth: Bearer token from cookie, 401 refresh+retry, then redirect to login.
+ * Registers API auth: Bearer token from cookie, 401 refresh+retry, then
+ * redirect to the auth host's login page. The auth host is a path on the
+ * shared origin (`/auth`, absolute or root-relative), and the redirect keeps
+ * that prefix and carries the current page as `returnTo`.
  */
 export function ApiAuthBootstrap({
   authHostUrl,
@@ -65,12 +68,17 @@ export function ApiAuthBootstrap({
       const returnTo = encodeURIComponent(globalThis.location.href);
       const suffix = returnTo.length > 0 ? `?returnTo=${returnTo}` : "";
       const loginPath = `/${locale}/login${suffix}`;
+      // The auth host lives under a path on the shared origin (`/auth`), so
+      // the login URL is appended to it, never resolved against its origin —
+      // `new URL("/en/login", ".../auth")` would drop the `/auth` prefix.
       const isAbsolute = /^https?:\/\//.test(authHostUrl);
-      const base = authHostUrl.startsWith("/")
-        ? authHostUrl
-        : `/${authHostUrl}`;
+      const base = stripTrailingSlash(
+        isAbsolute || authHostUrl.startsWith("/")
+          ? authHostUrl
+          : `/${authHostUrl}`,
+      );
       const loginUrl = isAbsolute
-        ? new URL(loginPath, authHostUrl).toString()
+        ? `${base}${loginPath}`
         : `${globalThis.location.origin}${base}${loginPath}`;
       globalThis.location.href = loginUrl;
     });

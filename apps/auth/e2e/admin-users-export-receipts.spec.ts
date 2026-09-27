@@ -32,8 +32,9 @@ function resolveAdminUsersUrl(): string {
   const adminBase = APP_URLS.ADMIN.endsWith("/admin")
     ? APP_URLS.ADMIN
     : `${APP_URLS.ADMIN}/admin`;
-  // In dev mode APP_URLS.ADMIN is http://localhost:5002 (no basePath prefix)
-  // In Docker/production APP_URLS.ADMIN ends with /admin
+  // Every environment serves admin under /admin on one origin, so APP_URLS.ADMIN
+  // already ends with /admin (dev: http://localhost:5050/admin). adminBase only
+  // appends the prefix when a bare origin is configured by hand.
   const base = APP_URLS.ADMIN.includes("localhost")
     ? APP_URLS.ADMIN
     : adminBase;

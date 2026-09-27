@@ -111,28 +111,17 @@ describe("clearCartCookie", () => {
     unsubscribe();
   });
 
-  it("includes shared domain when hostname has multiple parts", () => {
+  it("never sets a domain attribute, even on a multi-segment hostname", () => {
     vi.stubGlobal("location", { hostname: "payments.example.com" });
 
     clearCartCookie();
 
     expect(mockDeleteCookie).toHaveBeenCalledWith("libra-cart", {
       path: "/",
-      domain: ".example.com",
     });
   });
 
-  it("omits domain when hostname has fewer than two parts", () => {
-    vi.stubGlobal("location", { hostname: "singlepart" });
-
-    clearCartCookie();
-
-    expect(mockDeleteCookie).toHaveBeenCalledWith("libra-cart", {
-      path: "/",
-    });
-  });
-
-  it("skips domain computation and does not dispatch event when window is undefined", () => {
+  it("still clears the cookie when window is undefined", () => {
     vi.stubGlobal("window", void 0);
 
     // Should not throw and deleteCookie is still called

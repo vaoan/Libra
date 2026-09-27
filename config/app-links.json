@@ -2,31 +2,31 @@
   "landing": {
     "envKey": "NEXT_PUBLIC_LANDING_URL",
     "path": "/",
-    "devUrl": "http://localhost:5004"
+    "port": 5004
   },
   "store": {
     "envKey": "NEXT_PUBLIC_STORE_URL",
     "path": "/store",
-    "devUrl": "http://localhost:5001"
+    "port": 5001
   },
   "admin": {
     "envKey": "NEXT_PUBLIC_ADMIN_URL",
     "path": "/admin",
-    "devUrl": "http://localhost:5002"
+    "port": 5002
   },
   "payments": {
     "envKey": "NEXT_PUBLIC_PAYMENTS_URL",
     "path": "/payments",
-    "devUrl": "http://localhost:5005"
+    "port": 5005
   },
   "studio": {
     "envKey": "NEXT_PUBLIC_STUDIO_URL",
     "path": "/studio",
-    "devUrl": "http://localhost:5006"
+    "port": 5006
   },
   "auth": {
     "envKey": "NEXT_PUBLIC_AUTH_URL",
     "path": "/auth",
-    "devUrl": "http://localhost:5000"
+    "port": 5000
   }
 }

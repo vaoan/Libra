@@ -27,6 +27,9 @@ pnpm-lock.yaml
 **/coverage/
 **/playwright-report/
 **/test-results/
+# Playwright session/user/product JSON written by apps/*/e2e/*.setup.ts. It is
+# git-ignored by a nested .gitignore, which Prettier does not read.
+**/e2e/.auth/
 node_modules/
 
 # Git-ignored agent scratch.

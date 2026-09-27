@@ -134,7 +134,7 @@ export function ImageGallery({ product, theme }: ImageGalleryProps) {
                   )}
                   style={isActive ? { backgroundColor: theme.bg } : undefined}
                   aria-label={
-                    img.alt ??
+                    img.alt ||
                     t("gallery.views.viewImage", { label: String(idx + 1) })
                   }
                   {...tid(`image-gallery-thumb-${String(idx)}`)}
@@ -162,7 +162,7 @@ export function ImageGallery({ product, theme }: ImageGalleryProps) {
           {/* eslint-disable-next-line @next/next/no-img-element -- user-provided image URLs can come from arbitrary hosts */}
           <img
             src={activeImage.url}
-            alt={activeImage.alt ?? product.name_en}
+            alt={activeImage.alt || product.name_en}
             className={cn(
               "absolute inset-0 size-full",
               activeImage.fit === "contain" ? "object-contain" : "object-cover",
@@ -209,7 +209,7 @@ export function ImageGallery({ product, theme }: ImageGalleryProps) {
           {/* eslint-disable-next-line @next/next/no-img-element -- user-provided image URLs can come from arbitrary hosts */}
           <img
             src={activeImage.url}
-            alt={activeImage.alt ?? product.name_en}
+            alt={activeImage.alt || product.name_en}
             className={cn(
               "absolute inset-0 size-full",
               activeImage.fit === "contain" ? "object-contain" : "object-cover",
@@ -262,7 +262,10 @@ export function ImageGallery({ product, theme }: ImageGalleryProps) {
                     activeCls,
                   )}
                   style={isActive ? { backgroundColor: theme.bg } : undefined}
-                  aria-label={img.alt ?? String(idx + 1)}
+                  aria-label={
+                    img.alt ||
+                    t("gallery.views.viewImage", { label: String(idx + 1) })
+                  }
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- user-provided image URLs can come from arbitrary hosts */}
                   <img

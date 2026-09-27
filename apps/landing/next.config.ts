@@ -62,23 +62,14 @@ const securityHeaders = [
   },
 ];
 
-const basePathPrefix = process.env.BASE_PATH_PREFIX || "";
-const allowedDevOrigins = [
-  "landing.ffxivbe.org",
-  "ffxivbe.org",
-  "www.ffxivbe.org",
-];
-
 const nextConfig: NextConfig = {
-  allowedDevOrigins,
+  // Landing is the one app at the root — no basePath, in any environment.
   // lucide-react v1.x ESM dist uses .ts imports — Turbopack needs explicit extensions
   turbopack: {
     resolveExtensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".json"],
   },
-  // Landing serves at root "/" — no basePath for standard builds
   ...(process.env.STANDALONE === "true" && {
     output: "standalone" as const,
-    ...(basePathPrefix && { basePath: basePathPrefix }),
     outputFileTracingRoot: path.join(__dirname, "../.."),
   }),
   transpilePackages: ["api", "ui", "shared", "@monorepo/app-components"],

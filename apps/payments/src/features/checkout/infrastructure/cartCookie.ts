@@ -8,20 +8,9 @@ import {
 } from "@/shared/domain/constants";
 
 const EMPTY_CART: CartCookieItem[] = [];
-const MINIMUM_DOMAIN_SEGMENTS = 2;
-const DOMAIN_SUFFIX_SEGMENT_OFFSET = -2;
 
 let lastRawCartCookie: string | null = null;
 let lastCartSnapshot: CartCookieItem[] = EMPTY_CART;
-
-function getSharedCookieDomain(hostname: string): string | undefined {
-  if (hostname === "localhost" || hostname === "127.0.0.1") return undefined;
-
-  const parts = hostname.split(".");
-  if (parts.length < MINIMUM_DOMAIN_SEGMENTS) return undefined;
-
-  return `.${parts.slice(DOMAIN_SUFFIX_SEGMENT_OFFSET).join(".")}`;
-}
 
 /** Read and validate the cart cookie set by the store app. */
 export function readCartFromCookie(): CartCookieItem[] {
@@ -90,16 +79,8 @@ export function subscribeToCartCookie(onStoreChange: () => void): () => void {
   };
 }
 
-/** Clear the cart cookie by expiring it. */
+/** Clear the cart cookie by expiring it. Host-only: every app shares one origin. */
 export function clearCartCookie(): void {
-  let sharedDomain: string | undefined;
-  if (globalThis.window !== undefined) {
-    sharedDomain = getSharedCookieDomain(globalThis.location.hostname);
-  }
-
-  deleteCookie(CART_COOKIE_KEY, {
-    path: "/",
-    ...(sharedDomain ? { domain: sharedDomain } : {}),
-  });
+  deleteCookie(CART_COOKIE_KEY, { path: "/" });
   notifyCartCookieChanged();
 }
