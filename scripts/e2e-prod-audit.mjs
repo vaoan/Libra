@@ -8,7 +8,7 @@
  *
  * Spec: docs/superpowers/specs/2026-09-27-production-e2e-design.md §9.
  */
-import { runIdFromEmail } from "./lib/e2e-prod-plan.mjs";
+import { auditVerdict, runIdFromEmail } from "./lib/e2e-prod-plan.mjs";
 import { createRegistry } from "./lib/e2e-prod-registry.mjs";
 import { loadEnv } from "./load-env.mjs";
 
@@ -35,12 +35,19 @@ for (const r of runs) {
 }
 
 const landing = process.env.NEXT_PUBLIC_LANDING_URL;
-const html = await fetch(`${landing}/`, { cache: "no-store" })
-  .then((r) => r.text())
-  .catch(() => "");
-const testIdsLive = servedImageIsTestIds(html);
+// null when the site could not be read: the audit must not read a dead or
+// unreachable site as "clean".
+const testIdsLive = await fetch(`${landing}/`, { cache: "no-store" })
+  .then(async (r) => (r.ok ? servedImageIsTestIds(await r.text()) : null))
+  .catch(() => null);
 console.log(
-  `\nserved image carries test ids: ${testIdsLive ? "YES — a -testids build is live" : "no"}`,
+  `\nserved image carries test ids: ${
+    testIdsLive === null
+      ? "UNKNOWN — the public site did not answer"
+      : testIdsLive
+        ? "YES — a test-id build is live"
+        : "no"
+  }`,
 );
 
 const known = new Set(runs.map((r) => r.run_id));
@@ -52,6 +59,17 @@ console.log(
 );
 for (const u of unclaimed) console.log(`  ${u.id}  ${u.email}`);
 
-const running = runs.filter((r) => r.status === "running");
-const dirty = running.length > 0 || unclaimed.length > 0 || testIdsLive;
-process.exit(dirty ? 1 : 0);
+const orphanProfiles = await registry.unclaimedProfiles(known);
+console.log(`e2e profiles without a known run: ${orphanProfiles.length}`);
+for (const p of orphanProfiles) console.log(`  ${p.id}  ${p.email}`);
+
+const verdict = auditVerdict({
+  runs,
+  unclaimedUsers: unclaimed.length,
+  unclaimedProfiles: orphanProfiles.length,
+  testIds: testIdsLive,
+});
+console.log(
+  verdict.dirty ? `\nDIRTY: ${verdict.reasons.join("; ")}` : "\nclean",
+);
+process.exit(verdict.dirty ? 1 : 0);

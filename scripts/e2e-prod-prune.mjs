@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 
 import { buildPrunePlan } from "./lib/e2e-prod-plan.mjs";
 import { createRegistry } from "./lib/e2e-prod-registry.mjs";
+import { restorePreviousImage } from "./lib/e2e-prod-swap.mjs";
 import { isRunId } from "./lib/e2e-run-id.mjs";
 import { loadEnv } from "./load-env.mjs";
 
@@ -102,7 +103,19 @@ if (isMain) {
     if (!dryRun) {
       const run = (await registry.listRuns()).find((r) => r.run_id === runId);
       if (run?.status === "running") {
-        await registry.finishRun(runId, "aborted", "pruned by hand");
+        // A run left `running` never reached its own finally: the box may
+        // still serve the test-id image. Put the pre-window image back.
+        let note = "pruned by hand";
+        try {
+          await restorePreviousImage();
+          note += "; clean image restored";
+          console.log("  clean image restored on the box");
+        } catch (error) {
+          failed = true;
+          note += `; CLEAN IMAGE NOT RESTORED: ${error.message}`;
+          console.error(`  ${note}`);
+        }
+        await registry.finishRun(runId, "aborted", note);
       } else if (result.failures.length > 0) {
         await registry.finishRun(
           runId,

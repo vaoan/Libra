@@ -32,7 +32,9 @@ would leave untagged rows behind if anything broke.
 `e2e-20260927-1930-a3f1`. The runner mints it and exports it to Playwright
 as `E2E_RUN_ID`.
 
-- E2E emails: `e2e-<label>-<run_id>+clerk_test@example.com`.
+- E2E emails: `e2e-<label>-<Date.now()>-<run_id>+clerk_test@example.com`
+  (the timestamp keeps two specs with the same label apart; the run id stays
+  last so the sweep and prune patterns match on it).
 - E2E-created names (products, reports): prefix `e2e-<run_id>-`.
 - When `E2E_RUN_ID` is unset (dev, staging, CI) the helpers behave exactly
   as today, with `Date.now()` where the run id would go.
@@ -84,8 +86,16 @@ In `apps/auth/e2e/helpers`:
   `<order_id>/` prefix.
 - `registerRow(table, id)` is the single entry point; it is a no-op without
   `E2E_RUN_ID`, and it never throws into the test (a failed registration is
-  logged and the run is marked `failed` at the end, because an unregistered
-  row is exactly what prune must not miss).
+  logged, appended to `E2E_RUN_FAILURES_FILE` for the runner, and the run is
+  marked `failed` at the end, because an unregistered row is exactly what
+  prune must not miss).
+- `ensureRunRegistered()` runs before anything is created: the run id must
+  match the format and have an `e2e_runs` row, so a hand-exported
+  `E2E_RUN_ID` is refused instead of leaving untracked rows.
+- Prune reaches `user_profiles` rows by email as well as by registration
+  (`…-<run_id>+clerk_test@…`), so a profile created by the app before the
+  test registered it is still found; the audit lists unclaimed E2E profiles
+  the same way it lists unclaimed Clerk users.
 
 Rows the UI creates are reached by ownership, not registration: `orders`
 cascade from `user_profiles`, `order_items`, `check_ins` and
@@ -148,10 +158,16 @@ change.
 - the image is tagged `:<sha>-testids` and **not** `:latest`,
 - the rendered env file records `SITE_PROD_IMAGE_NAME=…:<sha>-testids`.
 
-Pushes to `main` never set it. The runner dispatches with `test_ids=true`,
-waits for the run to succeed, then polls `https://store.furrycolombia.com/`
-until the served HTML contains `data-testid=`; after the suite it dispatches
-with `test_ids=false` and polls until the attribute is gone.
+Pushes to `main` never set it. The runner dispatches with `test_ids=true`
+**on the branch the serving image was built from** (the last successful
+deploy's branch; `--ref` overrides), waits for the run to succeed, then polls
+`https://store.furrycolombia.com/` until the served HTML contains
+`data-testid=`. After the suite it does **not** rebuild: it restores the
+pre-window image from the box's `env.prod.previous` (the file the workflow
+keeps for rollback) over SSH and polls the box's loopback until the attribute
+is gone. A window never leaves a different image serving than it found, and
+never acts as a release path. (Amended 2026-09-27 after review: the first
+draft redeployed `develop`.)
 
 ## 9. Operator flow
 
@@ -161,16 +177,20 @@ pnpm e2e:prod --i-am-running-against-production [--app <auth|store|admin|payment
 
 1. **Preflight**: `TARGET_ENV=prod` loaded; `PROD_CLERK_*`,
    `PROD_SUPABASE_SERVICE_ROLE_KEY`, `RACKNERD_*` present; `gh auth status`
-   ok; the public site answers 200; no `e2e_runs` row is `running`; both
-   audio units on the box are `active`.
+   ok; the public site answers 200; no `e2e_runs` row is `running`; SSH to
+   the box works and both audio units are `active` (SSH is required: the
+   restore depends on it).
 2. Insert the `e2e_runs` row (`running`).
 3. Dispatch the test-ID deploy; wait for the swap.
 4. Run Playwright per app with `E2E_RUN_ID`, `E2E_PRODUCTION_ACK`,
    `TARGET_ENV=prod`, excluding `google-login.spec.ts`,
    `discord-login.spec.ts` and `setup-discord-session.ts`.
 5. Prune the run (§6).
-6. Dispatch the clean deploy; wait for the swap back.
-7. Set `status` and `finished_at`; print the audit line.
+6. Restore the pre-window image from `env.prod.previous`; wait until the box
+   serves no test ids.
+7. Set `status` and `finished_at` (a run whose Playwright child reported a
+   failed `registerRow` through `E2E_RUN_FAILURES_FILE` is `failed`); print
+   the audit line.
 
 Steps 5–7 live in one `finally`, so a failed or interrupted suite still
 prunes, still redeploys clean, and still records its status. A run

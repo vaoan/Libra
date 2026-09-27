@@ -7,7 +7,11 @@ import { createClient } from "@supabase/supabase-js";
 
 import { mintProductionSessionToken } from "./clerkSession";
 import { assertNotProductionClerk, productionGuardContext } from "./guardEnv";
-import { registerRow, runScopedToken } from "./runRegistry";
+import {
+  ensureRunRegistered,
+  registerRow,
+  runScopedToken,
+} from "./runRegistry";
 import { attachProfileId, registerClerkUser } from "./userRegistry";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- shared Node helper
@@ -347,11 +351,16 @@ export async function deleteClerkUserBySub(clerkUserId: string): Promise<void> {
  * Clerk user id and profile id are registered for prune, and the session JWT
  * is minted through a sign-in token because production instances refuse
  * Backend-API sessions (clerkSession.ts). Development keys keep the SDK path.
+ *
+ * Refuses to start (via `ensureRunRegistered`) when `E2E_RUN_ID` names a run
+ * `e2e_runs` does not know; inside a run the email token is
+ * `<Date.now()>-<run_id>` so same-label users never collide.
  */
 export async function createTestUser(
   label: string,
   permissions: string[] = [],
 ): Promise<TestUser> {
+  await ensureRunRegistered();
   // A Clerk dev-instance test email (`+clerk_test` subaddress): no real
   // inbox, no verification email actually sent, unique per run.
   const email = `e2e-${label}-${runScopedToken()}+clerk_test@example.com`;

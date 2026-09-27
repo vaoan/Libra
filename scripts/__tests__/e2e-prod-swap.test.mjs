@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { dispatchDeploy, waitForTestIds } from "../lib/e2e-prod-swap.mjs";
+import {
+  dispatchDeploy,
+  restorePreviousImage,
+  waitForTestIds,
+} from "../lib/e2e-prod-swap.mjs";
 
 const html = (withIds) => ({
   ok: true,
@@ -117,5 +121,67 @@ describe("dispatchDeploy", () => {
       "-f",
       "test_ids=true",
     ]);
+  });
+});
+
+describe("restorePreviousImage", () => {
+  it("moves env.prod.previous back, brings compose up, and waits for zero test ids on the box", async () => {
+    const runSsh = vi
+      .fn()
+      // restore command
+      .mockResolvedValueOnce("restored\n")
+      // first loopback count: still test ids
+      .mockResolvedValueOnce("23\n")
+      // second: clean
+      .mockResolvedValueOnce("0\n");
+    await restorePreviousImage({
+      runSsh,
+      sleep: async () => undefined,
+      timeoutMs: 1000,
+      intervalMs: 1,
+    });
+    expect(runSsh.mock.calls[0][0]).toContain("env.prod.previous");
+    expect(runSsh.mock.calls[0][0]).toContain(
+      "docker compose --env-file env.prod.rendered up -d",
+    );
+    expect(runSsh.mock.calls[1][0]).toContain("grep -c data-testid=");
+    expect(runSsh).toHaveBeenCalledTimes(3);
+  });
+
+  it("does nothing when the box already serves a clean image", async () => {
+    const runSsh = vi
+      .fn()
+      .mockResolvedValueOnce("clean already: ghcr.io/x/y:abc\n");
+    await restorePreviousImage({
+      runSsh,
+      sleep: async () => undefined,
+      timeoutMs: 10,
+      intervalMs: 1,
+    });
+    expect(runSsh).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses when the previous env is itself a test-id image", async () => {
+    const runSsh = vi.fn().mockResolvedValueOnce("no clean previous env\n");
+    await expect(
+      restorePreviousImage({
+        runSsh,
+        sleep: async () => undefined,
+        timeoutMs: 10,
+        intervalMs: 1,
+      }),
+    ).rejects.toThrow(/no clean previous env/);
+  });
+
+  it("refuses when there is no previous env to restore", async () => {
+    const runSsh = vi.fn().mockResolvedValueOnce("no previous env\n");
+    await expect(
+      restorePreviousImage({
+        runSsh,
+        sleep: async () => undefined,
+        timeoutMs: 10,
+        intervalMs: 1,
+      }),
+    ).rejects.toThrow(/no previous env/);
   });
 });

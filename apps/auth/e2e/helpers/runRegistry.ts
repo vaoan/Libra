@@ -7,10 +7,13 @@
  * Spec: docs/superpowers/specs/2026-09-27-production-e2e-design.md §5.
  */
 
+import { appendFileSync } from "node:fs";
+
 export type RowRegistrar = (tableName: string, rowId: string) => Promise<void>;
 
 const failures: string[] = [];
 let registrar: RowRegistrar = postToRegistry;
+let runCheck: Promise<void> | null = null;
 
 export function currentRunId(): string | undefined {
   const id = process.env.E2E_RUN_ID;
@@ -18,16 +21,48 @@ export function currentRunId(): string | undefined {
 }
 
 /**
- * The token that makes an E2E email or name unique: the run id inside a
- * production run, `Date.now()` otherwise (the historical behaviour).
+ * The token that makes an E2E email or name unique: `Date.now()` outside a
+ * run (the historical behaviour); inside a production run
+ * `<Date.now()>-<run_id>`, so two specs using the same label never collide
+ * and the value still ends in the run id that prune and the sweep match on.
  */
 export function runScopedToken(): string {
-  return currentRunId() ?? String(Date.now());
+  const runId = currentRunId();
+  return runId ? `${Date.now()}-${runId}` : String(Date.now());
+}
+
+/**
+ * Refuse to create anything for a run id that `e2e_runs` does not know:
+ * a hand-typed `E2E_RUN_ID` would otherwise pass the guard and leave rows
+ * no prune can find. One request per process, cached. No-op without a run.
+ */
+export function ensureRunRegistered(): Promise<void> {
+  const runId = currentRunId();
+  if (!runId) return Promise.resolve();
+  runCheck ??= (async () => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) throw new Error("Supabase URL or service role key unset");
+    const res = await fetch(
+      `${url}/rest/v1/e2e_runs?select=run_id&run_id=eq.${runId}`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    const rows = res.ok ? ((await res.json()) as unknown[]) : [];
+    if (rows.length !== 1) {
+      throw new Error(
+        `[e2e] no e2e_runs row for ${runId} — start production runs through \`pnpm e2e:prod\`, never by exporting E2E_RUN_ID by hand.`,
+      );
+    }
+  })();
+  return runCheck;
 }
 
 /**
  * Never throws into the test: a failed registration is exactly the row prune
  * must not miss, so it is recorded and the runner marks the run `failed`.
+ *
+ * A failure is also appended to `E2E_RUN_FAILURES_FILE` when the runner set
+ * one, so the parent process learns about it and marks the run failed.
  */
 export async function registerRow(
   tableName: string,
@@ -38,8 +73,27 @@ export async function registerRow(
     await registrar(tableName, rowId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    failures.push(`${tableName}/${rowId}: ${message}`);
-    console.warn(`[e2e] run registry: ${tableName}/${rowId}: ${message}`);
+    const line = `${tableName}/${rowId}: ${message}`;
+    failures.push(line);
+    console.warn(`[e2e] run registry: ${line}`);
+    // Playwright runs in a child process; the runner reads this file in its
+    // finally and marks the run failed, because an unregistered row is
+    // exactly what prune must not miss.
+    const file = process.env.E2E_RUN_FAILURES_FILE;
+    if (file) {
+      try {
+        appendFileSync(
+          file,
+          `${line}
+`,
+        );
+      } catch (writeError) {
+        console.warn(
+          `[e2e] run registry: could not write ${file}:`,
+          writeError,
+        );
+      }
+    }
   }
 }
 

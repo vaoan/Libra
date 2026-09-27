@@ -9,6 +9,7 @@ import {
   productionGuardContext,
 } from "../../auth/e2e/helpers/guardEnv";
 import {
+  ensureRunRegistered,
   registerRow,
   runScopedToken,
 } from "../../auth/e2e/helpers/runRegistry";
@@ -51,6 +52,7 @@ setup("authenticate", async ({ page }) => {
 
   // A Clerk dev-instance test email (`+clerk_test` subaddress): no real inbox,
   // no verification email actually sent, unique per run.
+  await ensureRunRegistered();
   const email = `e2e-${runScopedToken()}+clerk_test@example.com`;
 
   const { createClerkClient } = await import("@clerk/backend");

@@ -27,10 +27,22 @@ describe("createTestUser inside a production run", () => {
     process.env.CLERK_SECRET_KEY ??= "sk_test_stub";
     process.env.E2E_RUN_ID = RUN;
     process.env.E2E_PRODUCTION_ACK = RUN;
+    // ensureRunRegistered() looks the run up in e2e_runs; registerRow is
+    // swapped for a fake below, so this is the only fetch the helper makes.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => [{ run_id: RUN }],
+        text: async () => JSON.stringify([{ run_id: RUN }]),
+      })),
+    );
   });
   afterEach(() => {
     delete process.env.E2E_RUN_ID;
     delete process.env.E2E_PRODUCTION_ACK;
+    vi.unstubAllGlobals();
     vi.resetModules();
   });
 
@@ -44,7 +56,9 @@ describe("createTestUser inside a production run", () => {
 
     const user = await createTestUser("buyer");
 
-    expect(user.email).toBe(`e2e-buyer-${RUN}+clerk_test@example.com`);
+    expect(user.email).toMatch(
+      new RegExp(`^e2e-buyer-\\d{13}-${RUN}\\+clerk_test@example\\.com$`),
+    );
     expect(user.accessToken).toBe("dev.jwt");
     expect(registered).toEqual([
       "clerk_users:user_1",

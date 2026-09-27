@@ -2,6 +2,9 @@ import path from "node:path";
 
 export const PRODUCTION_HOST = "store.furrycolombia.com";
 
+/** Mirrors RUN_ID_PATTERN in scripts/lib/e2e-run-id.mjs (a test keeps them equal). */
+export const RUN_ID_PATTERN = /^e2e-\d{8}-\d{4}-[0-9a-f]{4}$/;
+
 export interface GuardContext {
   targetEnv?: string;
   runId?: string;
@@ -35,6 +38,7 @@ export function assertNotProductionClerk(
 function isAcknowledgedProductionRun(ctx: GuardContext): boolean {
   if (ctx.targetEnv !== "prod") return false;
   if (!ctx.runId || !ctx.ack || ctx.runId !== ctx.ack) return false;
+  if (!RUN_ID_PATTERN.test(ctx.runId)) return false;
   if (!ctx.baseUrl) return false;
   try {
     return new URL(ctx.baseUrl).hostname === PRODUCTION_HOST;

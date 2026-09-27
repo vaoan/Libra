@@ -2,24 +2,30 @@
 /**
  * Manual production E2E session. Never run from CI.
  *
- *   pnpm e2e:prod --i-am-running-against-production [--app <name>] [--ref <branch>] [--skip-audio-check] [-- <playwright args>]
+ *   pnpm e2e:prod --i-am-running-against-production [--app <name>] [--ref <branch>] [-- <playwright args>]
  *
- * preflight → e2e_runs row → deploy the test-id image → Playwright per app
- * → prune by run id → redeploy clean → record status. Steps after the run
- * row live in one finally, so a failed suite still prunes and still swaps
- * the clean image back.
+ * preflight → e2e_runs row → deploy the test-id image (built from the branch
+ * the serving image came from) → Playwright per app → prune by run id →
+ * restore the pre-window image from the box's env.prod.previous → record
+ * status. Steps after the run row live in one finally, so a failed suite
+ * still prunes and still puts the exact previous image back. SSH to the box
+ * is required (audio preflight and the restore).
  * Spec: docs/superpowers/specs/2026-09-27-production-e2e-design.md §9–§10.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { pruneRun } from "./e2e-prod-prune.mjs";
 import { createRegistry } from "./lib/e2e-prod-registry.mjs";
 import {
+  boxSshTarget,
   dispatchDeploy,
+  restorePreviousImage,
+  runSshCli,
+  servingBranch,
   waitForTestIds,
   watchRun,
 } from "./lib/e2e-prod-swap.mjs";
@@ -37,6 +43,8 @@ const sep = args.indexOf("--");
 const passthrough = sep === -1 ? [] : args.slice(sep + 1);
 const E2E_APPS = ["auth", "store", "admin", "payments", "landing"];
 const EXCLUDED = "google-login|discord-login|setup-discord-session";
+/** Branches a serving image may come from without an explicit --ref. */
+const KNOWN_REFS = ["main", "develop"];
 
 function fail(message) {
   console.error(message);
@@ -54,7 +62,6 @@ const apps = flag("--app") ? [flag("--app")] : E2E_APPS;
 if (apps.some((a) => !E2E_APPS.includes(a))) {
   fail(`--app must be one of ${E2E_APPS.join(", ")}`);
 }
-const ref = flag("--ref") ?? "develop";
 
 loadEnv("prod");
 for (const k of [
@@ -96,32 +103,28 @@ if (running.length > 0) {
   );
 }
 
-if (!args.includes("--skip-audio-check")) {
-  const key =
-    process.env.RACKNERD_VPS_SSH_KEY_PATH ??
-    resolve(homedir(), ".ssh/libra_prod_ed25519");
-  const host = process.env.RACKNERD_VPS_IP;
-  const user = process.env.RACKNERD_VPS_USER ?? "root";
-  if (!host || !existsSync(key)) {
-    fail(
-      "preflight: RACKNERD_VPS_IP and the deploy key are needed for the audio check (or pass --skip-audio-check)",
-    );
-  }
-  const ssh = spawnSync(
-    "ssh",
-    [
-      "-i",
-      key,
-      "-o",
-      "BatchMode=yes",
-      `${user}@${host}`,
-      "systemctl is-active go-librespot spotify-discord-bot",
-    ],
-    { encoding: "utf8" },
+// SSH is not optional: the restore at the end goes through it.
+try {
+  boxSshTarget();
+} catch (error) {
+  fail(`preflight: ${error.message}`);
+}
+const units = await runSshCli(
+  "systemctl is-active go-librespot spotify-discord-bot",
+).catch((e) => fail(`preflight: ssh to the box failed: ${e.message}`));
+if (!/^active\s+active\s*$/.test(units ?? "")) {
+  fail(`preflight: audio units not both active:\n${units}`);
+}
+
+// The test-id image is built from the branch the serving image came from,
+// so the window runs the code that is live. Never a default of develop: the
+// window must not become a release path.
+const ref = flag("--ref") ?? (await servingBranch());
+if (!ref) fail("preflight: no successful deploy found to take the ref from");
+if (!flag("--ref") && !KNOWN_REFS.includes(ref)) {
+  fail(
+    `preflight: the serving image came from "${ref}"; pass --ref explicitly`,
   );
-  if (!/^active\s+active\s*$/.test(ssh.stdout ?? "")) {
-    fail(`preflight: audio units not both active:\n${ssh.stdout}${ssh.stderr}`);
-  }
 }
 
 const runId = mintRunId();
@@ -135,6 +138,11 @@ const operator =
     cwd: rootDir,
   }).stdout.trim() || "unknown";
 const imageTag = `ghcr.io/vaoan/libra-prod:${gitSha}-testids`;
+const failuresFile = join(
+  mkdtempSync(join(tmpdir(), "e2e-prod-")),
+  "registry-failures.log",
+);
+writeFileSync(failuresFile, "");
 
 console.log(
   `\n🧪 production e2e  run=${runId}  apps=${apps.join(",")}  ref=${ref}\n`,
@@ -151,7 +159,7 @@ await registry.createRun({
 let status = "failed";
 let notes = null;
 try {
-  console.log("▶ deploying the test-id image");
+  console.log(`▶ deploying the test-id image from ${ref}`);
   const deployRun = await dispatchDeploy({ testIds: true, ref });
   await watchRun(deployRun);
   await waitForTestIds({ url: `${landing}/`, present: true });
@@ -166,6 +174,14 @@ try {
     }
   }
   status = suiteFailed ? "failed" : "passed";
+  // A registration that failed inside Playwright is a row prune cannot see.
+  const unregistered = readFileSync(failuresFile, "utf8")
+    .split("\n")
+    .filter(Boolean);
+  if (unregistered.length > 0) {
+    status = "failed";
+    notes = `${unregistered.length} row registration(s) failed: ${unregistered.slice(0, 5).join(" | ")}`;
+  }
 } catch (error) {
   notes = error instanceof Error ? error.message : String(error);
   console.error(`✗ ${notes}`);
@@ -179,15 +195,13 @@ try {
     notes = `${notes ? `${notes}; ` : ""}prune left ${result.failures.length} item(s)`;
   }
 
-  console.log("▶ redeploying the clean image");
+  console.log("▶ restoring the pre-window image");
   try {
-    const cleanRun = await dispatchDeploy({ testIds: false, ref });
-    await watchRun(cleanRun);
-    await waitForTestIds({ url: `${landing}/`, present: false });
-    console.log("✓ production serves the clean image");
+    await restorePreviousImage();
+    console.log("✓ the box serves the pre-window image again");
   } catch (error) {
     status = "failed";
-    notes = `${notes ? `${notes}; ` : ""}clean redeploy failed: ${error.message} — PRODUCTION MAY STILL SERVE TEST IDS`;
+    notes = `${notes ? `${notes}; ` : ""}restore failed: ${error.message} — PRODUCTION MAY STILL SERVE TEST IDS`;
     console.error(notes);
   }
   await registry.finishRun(runId, status, notes);
@@ -215,6 +229,7 @@ function playwright(app) {
     TARGET_ENV: "prod",
     E2E_RUN_ID: runId,
     E2E_PRODUCTION_ACK: runId,
+    E2E_RUN_FAILURES_FILE: failuresFile,
   };
   console.log(`▶ playwright  app=${app}\n`);
   return new Promise((resolvePromise) => {

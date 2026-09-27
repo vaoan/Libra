@@ -10,26 +10,32 @@ Manual only. Never from CI. Design:
     pnpm e2e:prod --i-am-running-against-production -- --grep "checkout"
 
 What happens: preflight (secrets, `gh auth`, public `/health`, no other run
-`running`, both audio units active on the box) → `e2e_runs` row → the
-test-id image is deployed → Playwright runs with `E2E_RUN_ID` and
-`E2E_PRODUCTION_ACK` → prune by run id → clean image redeployed → status
-recorded. The Google/Discord login specs never run here.
+`running`, SSH to the box, both audio units active) → `e2e_runs` row → the
+test-id image is built **from the branch the serving image came from** and
+deployed → Playwright runs with `E2E_RUN_ID` and `E2E_PRODUCTION_ACK` →
+prune by run id → **the pre-window image is restored** from the box's
+`env.prod.previous` (no rebuild, exact same image) → status recorded. The
+Google/Discord login specs never run here. A window never changes what
+production serves once it is over; if a `registerRow` failed inside
+Playwright the run is marked `failed` and the audit shows it.
 
 During the window, E2E products (`e2e-<run_id>-…`) are visible in the live
 store. They are deleted in teardown even when the suite fails.
 
-The audio preflight needs `RACKNERD_VPS_IP` and `RACKNERD_VPS_USER` in
+SSH to the box is required: `RACKNERD_VPS_IP` and `RACKNERD_VPS_USER` in
 `.secrets` (both are repository secrets; `pnpm sync-secrets` brings them) and
 the deploy key at `~/.ssh/libra_prod_ed25519` (or `RACKNERD_VPS_SSH_KEY_PATH`).
-Without them pass `--skip-audio-check` and watch the bridge yourself.
+The preflight checks the audio units through it and the restore at the end
+depends on it.
 
 ## Audit
 
     pnpm e2e:prod:audit
 
 Every run with its leftover count, whether production currently serves
-test ids, and any `e2e-*` user on the production Clerk instance no run
-claims. Exit 1 when anything is off.
+test ids (or could not be read), and any `e2e-*` Clerk user or
+`user_profiles` row no run claims. Exit 1 when anything is off, including
+leftovers on a finished run and an unreachable site.
 
 ## Prune
 
@@ -38,9 +44,11 @@ claims. Exit 1 when anything is off.
     pnpm e2e:prod:prune --older-than-hours 24
 
 Positive match on the run id only. A run interrupted before its own
-cleanup (killed terminal) is pruned this way and marked `aborted`. If the
-audit says production serves test ids, redeploy clean:
-`gh workflow run deploy-production.yml --ref develop -f test_ids=false`.
+cleanup (killed terminal) is pruned this way, the pre-window image is
+restored from the box's `env.prod.previous`, and the run is marked
+`aborted`. If that restore is not possible (`env.prod.previous` gone), the
+prune says so and the audit keeps flagging the test-id image until a
+normal deploy replaces it.
 
 ## Where things live
 

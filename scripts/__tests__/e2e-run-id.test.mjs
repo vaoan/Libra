@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -40,5 +44,19 @@ describe("mintRunId", () => {
         "e2e-buyer-1727000000000+clerk_test@example.com",
       ),
     ).toBeNull();
+  });
+});
+
+describe("the guard's copy of the run id pattern", () => {
+  it("is byte-identical to RUN_ID_PATTERN", () => {
+    const guard = readFileSync(
+      resolve(
+        fileURLToPath(import.meta.url),
+        "../../../apps/auth/e2e/helpers/guardEnv.ts",
+      ),
+      "utf8",
+    );
+    const m = /export const RUN_ID_PATTERN = (\/.*\/);/.exec(guard);
+    expect(m?.[1]).toBe(RUN_ID_PATTERN.toString());
   });
 });
