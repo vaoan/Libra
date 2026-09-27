@@ -36,7 +36,10 @@ describe("fonts are vendored", () => {
   });
 
   it("the vendored font files exist", () => {
-    for (const name of ["dm-sans-latin-wght.woff2", "syne-latin-wght.woff2"]) {
+    for (const name of [
+      "dm-sans-latin-variable.woff2",
+      "syne-latin-variable.woff2",
+    ]) {
       const size = statSync(join(ROOT, "packages/shared/src/fonts", name)).size;
       expect(size, name).toBeGreaterThan(10_000);
     }

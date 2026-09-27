@@ -12,14 +12,14 @@ import { ThemeScript } from "./ThemeScript";
 // must need no network. scripts/__tests__/no-google-fonts.test.mjs guards
 // against reintroducing the network loader.
 const syne = localFont({
-  src: "../fonts/syne-latin-wght.woff2",
+  src: "../fonts/syne-latin-variable.woff2",
   variable: "--font-syne",
   weight: "400 800",
   display: "swap",
 });
 
 const dmSans = localFont({
-  src: "../fonts/dm-sans-latin-wght.woff2",
+  src: "../fonts/dm-sans-latin-variable.woff2",
   variable: "--font-dm-sans",
   weight: "400 700",
   display: "swap",
