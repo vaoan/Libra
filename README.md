@@ -45,22 +45,22 @@ Tickets · merch · digital goods · services — six Next.js apps, one Supabase
 ## `00` — Status
 
 > [!WARNING]
-> **Production is offline.** It last served traffic on **2026-08-07**. The GCP free
-> trial ended, Google suspended the project, the VM stopped, and the `cloudflared`
-> process holding the production tunnel died with it. Every production hostname has
-> returned Cloudflare `530 / 1033` since.
+> **Production is offline while it moves hosts.** It last served traffic on
+> **2026-08-07**, when the GCP free trial ended and the VM holding the production
+> tunnel died with it. GCP is not coming back (paying anything is a hard stop).
 >
-> The three deploy workflows were deleted on 2026-08-09 — each pointed at a host that
-> no longer exists, and `deploy-gcp.yml` fired on every push to `main`, which would
-> have turned every release into a failing run. They remain in git history.
+> As of **2026-09-27** the replacement is mostly in place: the RackNerd VPS is
+> provisioned, the production database is restored and verified, and
+> `deploy-production.yml` builds and ships the image. Two dashboard steps still gate
+> the cutover — the Cloudflare tunnel token and the Clerk production instance.
 >
 > **Everything else works.** Dev, staging, E2E, CI and the Supabase projects are all
-> live. Only the public deploy path is gone.
+> live.
 >
-> → [`docs/production-status.md`](docs/production-status.md) — why it went down, which
-> domain is which, and the single credential still missing to restore it.
-> → [`docs/infrastructure.md`](docs/infrastructure.md) — how the environment was built,
-> kept as a blueprint.
+> → [`docs/production-status.md`](docs/production-status.md) — where each piece
+> stands, the cutover order, and the two steps still open.
+> → [`docs/infrastructure.md`](docs/infrastructure.md) — how the GCP environment was
+> built, kept as a blueprint.
 
 ---
 
