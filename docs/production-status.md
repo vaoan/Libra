@@ -1,219 +1,189 @@
 # Production status & restore path
 
-> **Current state: production is OFFLINE, and so is its database.** Last
-> served 2026-08-07. This document exists so nobody has to re-derive the
-> situation from scratch. Written 2026-08-09, updated 2026-08-29 — see
-> [Database status (update, 2026-08-29)](#database-status-update-2026-08-29)
-> below; the sections after it were accurate as of 2026-08-09 but predate the
-> database loss.
+> **Current state (2026-09-27): production is being brought back.** The host
+> is provisioned, the database is restored and verified, and the deploy
+> pipeline exists. Two dashboard steps still gate the cutover: the Cloudflare
+> tunnel token and the Clerk production instance. Until then
+> `store.furrycolombia.com` still returns Cloudflare 530.
+>
+> The design this follows is
+> `docs/superpowers/specs/2026-09-05-production-re-release-design.md`; the
+> run's ledger is `.superpowers/sdd/2026-09-05-production-re-release/progress.md`.
 
-## What happened
+## Where each piece stands
 
-The **GCP free trial ended**. Google suspended the project, which stopped the
-VM, which killed the `cloudflared` process running the production tunnel. Every
-production hostname has returned Cloudflare **530 / error 1033** ("no tunnel
-connected") ever since.
+| Piece             | State                                                                                                                                        |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Host              | **Ready.** The RackNerd VPS that runs the Spotify→Discord bridge, provisioned by `scripts/server/provision-racknerd.sh` on 2026-09-27.       |
+| Database          | **Ready.** Supabase `olafyajipvsltohagiah` un-paused, wiped, migrated from the baseline, restored from the 2026-09-27 snapshot and verified. |
+| Image             | **Ready.** `docker/ci/Dockerfile` builds the production image; CI builds it on every PR.                                                     |
+| Deploy pipeline   | **Ready, untested against the box.** `.github/workflows/deploy-production.yml`; the dry run needs the branch merged to `develop` first.      |
+| Cloudflare tunnel | **Blocked on a token.** `cloudflared` is installed on the box but not configured. See [The tunnel](#the-tunnel).                             |
+| Clerk production  | **Blocked on the dashboard.** Apps still point at the development instance. See [Clerk](#clerk-production-instance).                         |
+| Scheduled backups | **Running.** `backup-scheduled.yml` re-enabled 2026-09-27, daily 04:00 UTC; it doubles as the keepalive against another Supabase pause.      |
 
-Dated from the repo webhook's delivery log, which is the most precise record we
-have:
+## What happened, briefly
 
-| when (UTC)                | webhook response  | meaning                                     |
-| ------------------------- | ----------------- | ------------------------------------------- |
-| 2026-08-07 17:36 → 18:03  | `404`, empty body | tunnel **connected**, no route for the host |
-| 2026-08-08 02:27 → onward | `530` / `1033`    | **no tunnel connected at all**              |
+The GCP free trial ended on 2026-08-07. Google suspended the project, which
+stopped the VM and the `cloudflared` process that held the production tunnel.
+Every production hostname has returned Cloudflare 530 / 1033 since. GCP is not
+coming back: paying anything is a hard stop. The three GCP-era deploy
+workflows were deleted on 2026-08-09 and are in git history.
 
-The last successful deploy — and therefore the newest built image — is
-**2026-07-08**. The site kept serving that image for a month until the VM died;
-"last deploy" and "went offline" are a month apart and should not be confused.
-
-**Nothing in the repo caused this.** The repository transfer, the rename to
-Libra, and the workflow changes all happened around the same window, which makes
-for an alarming coincidence, but none of them touch the VM, Cloudflare, or GCP.
-
-## What this means going forward
-
-GCP is not coming back: restoring it needs a paid billing account, and **paying
-anything is a hard stop**. The deploy workflows (`deploy-gcp.yml`,
-`deploy-local.yml`, `deploy-production.yml`) were deleted for that reason — each
-pointed at a host that no longer exists. They are in git history.
+The 2026-08-29 update to this document said both Supabase projects were
+**gone**. That was wrong: they were **paused**. Supabase pauses free projects
+after a week of inactivity, and a paused project answers `NXDOMAIN` and rejects
+its tokens, which is indistinguishable from deletion from the outside. On
+2026-09-27 `POST /v1/projects/olafyajipvsltohagiah/restore` on the Management
+API brought production back with every row intact.
 
 ## Domain topology — read this before touching Cloudflare
 
-This is the part that is easy to get wrong, and was got wrong during the
-2026-08-09 investigation — an hour went into testing the wrong domain:
+This is the part that is easy to get wrong, and cost an hour in the 2026-08-09
+investigation:
 
 | domain              | role                | notes                                            |
 | ------------------- | ------------------- | ------------------------------------------------ |
-| `furrycolombia.com` | **production**      | `store.furrycolombia.com` is the real storefront |
+| `furrycolombia.com` | **production**      | `store.furrycolombia.com` is the only hostname   |
 | `ffxivbe.org`       | **staging / local** | app hostnames here are _not_ production          |
 | `ffxiv.be`          | dev tooling         | console, code-server, ttyd — the PCSetup tunnels |
 
-Three secrets are misleadingly named and have cost time already:
+Every app lives under the one origin, path-routed by nginx inside the
+container: `/` landing, `/store`, `/auth`, `/admin`, `/payments`, `/studio`.
+No subdomains, so Cloudflare needs exactly one ingress rule.
+
+Three secrets are misleadingly named:
 
 - **`PROD_CF_ZONE_ID` holds the `ffxivbe.org` zone** — a staging zone under a
-  "PROD" name. Using it with `PROD_CF_API_TOKEN` produces a confusing
-  "unauthorized" error, because the token is scoped to the _other_ domain.
+  "PROD" name.
 - **`PROD_CF_API_TOKEN` does reach `furrycolombia.com`**, but only for
-  **zone-read and cache-purge**. DNS read returns `403`.
-- **`CLOUDFLARED_CONFIG` / `CLOUDFLARED_TUNNEL_CREDENTIALS`** are the
-  **staging** tunnel's, despite the generic names — their ingress lists
-  `ffxivbe.org` hostnames. They are stored base64-encoded with a `_BASE64`
-  suffix because they are multi-line; searching `.secrets` for the bare name
-  finds nothing.
+  zone-read and cache-purge. It cannot create tunnels or touch DNS
+  (verified again 2026-09-27: `cfd_tunnel` POST → authentication error).
+- **`CLOUDFLARED_CONFIG_BASE64` / `CLOUDFLARED_TUNNEL_CREDENTIALS_BASE64`**
+  are the **staging** tunnel's — their ingress lists `ffxivbe.org` hostnames.
 
-## Why the old tunnel cannot simply be restarted
+## Host
 
-The production tunnel (`libra-prod`) was created **on the VM**, so its
-credentials died with the disk. It is not merely disconnected: listing tunnels
-in the production Cloudflare account returns **zero**. There is nothing to
-reattach and nothing to recover — a new tunnel has to be created.
+Libra runs as one Docker container on the RackNerd VPS; the Spotify bridge
+stays as systemd services on the same host. The box has 961 MB of RAM, so the
+container is capped at 600 MB (1.5 GB with swap), 0.75 CPU and 1024 pids, and
+the bridge is protected with `CPUWeight=10000` and `OOMScoreAdjust=-500`
+(`scripts/server/audio-priority.sh`). Under memory pressure Libra restarts;
+the audio does not stutter. Whether that holds under real web load is the one
+acceptance test still open — the user judges the audio while the site is
+loaded.
 
-## Database status (update, 2026-08-29)
+Provisioning (`scripts/server/provision-racknerd.sh`, idempotent) purged the
+unused daemons, capped journald at 50 MB, added a 2 GB swap file to the 1 GB
+partition, installed Docker and `cloudflared`, opened only SSH in ufw, and
+created `/opt/libra`. SSH is key-only: the deploy key is
+`~/.ssh/libra_prod_ed25519`, stored as the `RACKNERD_VPS_SSH_KEY` repository
+secret alongside `RACKNERD_VPS_IP` and `RACKNERD_VPS_USER`. The root password
+still works on the RackNerd VNC console, as the recovery path.
 
-The 2026-08-09 verification below ("the production Supabase project is
-alive") is **no longer true**. Both the production Supabase project
-(`olafyajipvsltohagiah`) and the dev one (`dsczudkhoolxjaxjeqdf`) are gone —
-`NXDOMAIN` on three resolvers, and both Personal Access Tokens get `401` on
-`/v1/projects`. Only the host restarting won't bring anything back; the
-database it would talk to no longer exists either.
+## Database
 
-**The July 15 backup (`prod_2026-07-15T06-22-42`) is the database's final
-state.** The scheduled backup that ran 2026-08-09 logged
-`"DB content unchanged since last upload"` with row counts identical to the
-July file — so nothing was lost between the last real activity and the
-project's disappearance. That backup is complete and consistent: 17/17
-tables, 196 user profiles, 154/154 storage receipts, and zero orphaned
-foreign keys, confirmed by the full restore-and-verify rehearsal in
-`.superpowers/sdd/2026-08-29-aeleos-login-migration/task-12-report.md`.
+Snapshot `prod_2026-09-27T15-43-03` (`.ai-context/backups/`, 3.8 MB) is the
+pre-wipe state: 17 tables, 2404 rows, 154 receipt files, zero errors. The
+`public` schema was dropped together with Libra's own `audit` and
+`audit_archive` schemas, `supabase/migrations/20260902120000_baseline.sql` was
+applied, and the snapshot was restored with `scripts/backup-prod.mjs
+--restore`. The gate then passed:
 
-Restoring now is **not** "turn the old project back on" — there is no old
-project to turn on. It means:
+```
+node scripts/verify-prod-restore.mjs <snapshot-dir>
+```
 
-1. **Provisioning a brand-new Supabase project** (a new project ref, a new
-   Postgres instance with nothing in it).
-2. **Applying every migration in `supabase/migrations/`** to build the schema
-   from scratch, including the Clerk identity re-key done in this branch (see
-   `docs/superpowers/specs/2026-08-29-aeleos-login-migration-design.md`) —
-   the schema the backup restores into is not the schema production had in
-   July, and that is by design: the old schema FK'd every user row to
-   `auth.users`, which cannot exist again because those Clerk-less identities
-   are gone. The new schema keys on `user_profiles` instead, which is what
-   makes the backup restorable at all.
-3. **Restoring `prod_2026-07-15T06-22-42`** via `scripts/backup-prod.mjs
---restore` into that fresh project, **before anyone signs in** — the
-   restore truncates `user_profiles`, so restoring over a live system would
-   wipe every `identity_sub` already claimed.
+Every table matched its manifest count (user_profiles 196, orders 147,
+order_items 147, permissions 46, user_permissions 1799, …), zero orders point
+at a missing profile, and the receipts bucket holds all 154 files.
 
-   The migrations now **seed** the reference tables — `permissions`,
-   `resource_permissions`, `product_templates`, `payment_settings` — so a
-   fresh database is usable before any restore. `backup-prod.mjs --restore`
-   empties every table before inserting, so those seeded rows are replaced by
-   the backup's and nothing collides. **A restore done by hand must do the
-   same**, or it silently corrupts the reference tables rather than failing:
-   `resource_permissions` and `product_templates` have no unique key that
-   catches a duplicate (`resource_permissions`' unique index includes a
-   nullable column, and NULL never equals NULL), so seeded rows and restored
-   rows simply coexist — a rehearsal ended with 92 and 10 rows where 46 and 5
-   were correct, with no error raised. Truncate `audit.logged_actions` too:
-   seeding writes 100 audit rows, which take the `event_id` values the
-   backup's own audit rows need.
+Two traps, both paid for already, are recorded in
+[`.claude/rules/supabase-wipe.md`](../.claude/rules/supabase-wipe.md): drop
+the audit schemas with `public` or the baseline fails with 42P16, and always
+restore with `--restore` (it truncates the seeded reference tables first;
+a hand restore leaves seeded and restored rows coexisting with no error).
 
-4. **Pointing every app's env at the new project** (`NEXT_PUBLIC_SUPABASE_URL`,
-   keys, and Supabase's trusted-Clerk-domain config) and re-enabling
-   `backup-scheduled.yml`, which is currently `disabled_manually` because it
-   targets the dead project and can only fail as long as it stays pointed
-   there.
+**Nobody signs in before the Clerk switch is done.** `--restore` truncates
+`user_profiles`, so a restore over a live system would wipe claimed
+`identity_sub` values; the restore is finished and must not be repeated
+after the first login.
 
-None of this is blocked on Cloudflare, DNS, or the host below — it is a
-separate prerequisite that has to happen first, since the app has nothing to
-serve without a database.
+## Deploy pipeline
 
-## What is already in place
+`.github/workflows/deploy-production.yml` runs on every push to `main` and on
+`workflow_dispatch`:
 
-Verified working 2026-08-09 (host/tunnel facts only — see the database update
-above for why the Supabase bullet no longer holds):
+1. Builds `docker/ci/Dockerfile` on GitHub's runners and pushes
+   `ghcr.io/vaoan/libra-prod:<sha>` and `:latest`. Build-time public values
+   come from `.env.prod`; secrets from the repository.
+2. Renders the runtime env file from secrets (never committed) and copies it
+   with `docker/compose.yml` to `/opt/libra` over SSH.
+3. `docker compose pull && up -d`, then gates on
+   `http://127.0.0.1:9090/health` on the box. On failure it rolls back to the
+   previous env file and reports.
 
-- ~~The production Supabase project is alive — `/auth/v1/health` answers
-  `401`, meaning up and requiring auth, not paused.~~ **No longer true** — the
-  project is gone; see [Database status](#database-status-update-2026-08-29).
-- **The known-good image exists**: digest `c60338c1…`, the 2026-07-08 build.
-  Present locally and in GHCR under both the old and new names.
-- **Docker and `cloudflared` are installed** on the workstation, and a
-  `cloudflared` already runs there for the dev console.
-- **The container recipe** is in `scripts/deploy-production.sh`: published as
-  `-p 9090:8080`, `--cap-drop=ALL`, `--security-opt=no-new-privileges`,
-  `--pids-limit=1024`, `--restart unless-stopped`, `--env-file`.
+The container binds `127.0.0.1:9090` only; the tunnel is the sole public path.
+Fonts are vendored (`packages/shared/src/fonts`) so the build needs no network
+— the Google-hosted loader failed repeatedly on 2026-09-27 and blocked the
+image.
 
-## The one missing piece
+## The tunnel
 
-**A Cloudflare API token for the `furrycolombia.com` account with
-`Account → Cloudflare Tunnel → Edit` and `Zone → DNS → Edit`.** Everything else
-is ready; without it neither the tunnel nor the DNS record can be created.
+`.env.prod` has `CLOUDFLARE_TUNNEL_APP_ENABLED=false` and an empty
+`CLOUDFLARE_TUNNEL_APP_TOKEN`. To finish:
 
-Create it under **My Profile → API Tokens** in the Cloudflare account that owns
-`furrycolombia.com`, and store it as a repository secret — suggested name
-`PROD_CF_TUNNEL_TOKEN`, to avoid inheriting the naming confusion above.
+1. In the Cloudflare dashboard for the account that owns `furrycolombia.com`,
+   **Zero Trust → Networks → Tunnels → Create**, name `libra-prod`, and copy
+   the tunnel token.
+2. Add one public hostname: `store.furrycolombia.com` → `http://localhost:9090`.
+   The dashboard creates the proxied CNAME itself.
+3. On the box: `sudo cloudflared service install <token>`.
+4. Store the token as the `CLOUDFLARE_TUNNEL_APP_TOKEN` repository secret and
+   set `CLOUDFLARE_TUNNEL_APP_ENABLED=true` in `.env.prod`.
 
-## Restore runbook
+A dashboard-managed tunnel needs only that token. An API token with
+`Account → Cloudflare Tunnel → Edit` and `Zone → DNS → Edit` would let the
+same be scripted, but is not required.
 
-Once that token exists:
+## Clerk production instance
 
-1. **Create a tunnel** in the production account, e.g. `libra-prod`, and save
-   its credentials as a repository secret so the next rebuild does not repeat
-   this exercise.
-2. **Write an ingress config** mapping `store.furrycolombia.com` (and any other
-   hostnames wanted) to `http://localhost:9090`.
-3. **Start the container** from the recipe above, with runtime env resolved for
-   `prod` (`scripts/load-env.mjs` resolves `$secret:` references from
-   `.secrets` — do **not** set `CI=true`, which makes it skip that file).
-4. **Point DNS** — `store.furrycolombia.com` CNAME to
-   `<tunnel-uuid>.cfargotunnel.com`, proxied.
-5. **Verify** the hostname returns `200`, not `530`.
+The apps assume one Clerk instance on one domain; nothing in code changes.
+Dashboard steps, done once, before the first authenticated request:
 
-### Clerk production instance and the Supabase side effect
+1. Create the production instance with primary domain
+   `store.furrycolombia.com`. Create the DNS records Clerk lists in the
+   `furrycolombia.com` zone as **DNS-only** records.
+2. Re-create the Google and Discord OAuth apps for the production origin.
+3. Copy the production publishable key, secret key and frontend-API domain
+   into the repository secrets `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` and
+   `CLERK_DOMAIN`, in this repository and in `aeleos`, which shares the
+   instance.
+4. Set the sign-in, sign-up and after-sign-in paths under `/auth/<locale>/...`.
+5. **Change `SUPABASE_CLERK_DOMAIN` in `.env.prod`** from
+   `regular-puma-47.clerk.accounts.dev` to the production frontend-API domain,
+   and set the same value on the production Supabase project's third-party
+   auth provider. If this is skipped, every authenticated Supabase call falls
+   back to the anon key and returns nothing, with no error.
+6. Restrict allowed redirect origins to `https://store.furrycolombia.com`.
 
-The apps assume one Clerk instance on one domain. Nothing in code changes for
-production; these are dashboard steps, done once, before the first
-authenticated request.
+`scripts/clerk-email-parity.mjs` lists restored profiles with no matching
+Clerk user. Against the development instance it reports 192 of 196; the 4 real
+accounts match. After promotion that list is the support list: those users
+sign in fresh and are re-linked by email.
 
-1. In Clerk, create the production instance with primary domain
-   `store.furrycolombia.com`. Clerk lists the DNS records it needs — a
-   frontend-API CNAME (`clerk.store.furrycolombia.com`), plus account-portal
-   and email records if those features are used. Create them in the
-   `furrycolombia.com` Cloudflare zone as **DNS-only** records.
-2. Copy the production publishable key, secret key and frontend-API domain into
-   the repository secrets `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` and
-   `CLERK_DOMAIN`. `.env.prod` already references all three.
-3. In Clerk, set the sign-in, sign-up and after-sign-in paths under
-   `/auth/<locale>/...`, matching the auth app's `basePath`.
-4. **Change `SUPABASE_CLERK_DOMAIN` in `.env.prod`** from the development
-   `regular-puma-47.clerk.accounts.dev` host to the production frontend-API
-   domain, and set the same value on the production Supabase project's
-   third-party-auth provider. Supabase trusts Clerk tokens by issuer domain: if
-   this step is skipped, every authenticated Supabase call falls back to the
-   anon key and returns nothing, with no error.
-5. Restrict Clerk's allowed redirect origins to
-   `https://store.furrycolombia.com`.
+## Cutover, strictly ordered
 
-Dev and staging keep the development instance, which already works on
-`localhost` and on the staging tunnel hostname. No satellite domains are
-needed anywhere: every app shares the one origin.
+1. Clerk production live and verified.
+2. Database restored and verified — **done 2026-09-27**.
+3. Container deployed via the workflow, healthcheck green, audio unaffected
+   under load.
+4. Tunnel connected, `store.furrycolombia.com` returns 200.
+5. First login.
 
-### Decide these before starting
+## Related
 
-- **The host would be the workstation**, so the store is online only while that
-  machine is. For a shop with no active users this may be fine; it is still a
-  change in what "production" means.
-- **The image is the 2026-07-08 build**, which predates the Libra rename. The
-  renamed build changes the cart cookie, the checkout session key and the
-  permission cache key, so deploying it drops existing carts. Bringing back the
-  old image first is the lower-risk order.
-- **It talks to live production Supabase** — or rather, it would have to: as of
-  2026-08-29 there is no live production Supabase project to talk to. This
-  runbook restores the _host_; see
-  [Database status](#database-status-update-2026-08-29) above for the
-  separate, and now necessary, prerequisite of standing up a new Supabase
-  project and restoring into it before this app can serve anything. The
-  2026-07-08 image also predates the Clerk-based login in this branch, so
-  whichever build gets deployed once the database exists again needs to match
-  whichever auth stack that new project is configured to trust.
+- [Infrastructure & Deployment Guide](./infrastructure.md) — the GCP-era
+  blueprint; the RackNerd setup above supersedes its host sections.
+- [Production Incident Playbook](./production-incident-playbook.md)
+- [Environment System](./environment.md)

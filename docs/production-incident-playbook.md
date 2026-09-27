@@ -1,16 +1,16 @@
 # Production Incident Playbook
 
-> ## ⛔ No production to have incidents on, as of 2026-08-09
+> ## ⚠ Host change — every host and container name below is historical
 >
 > The GCP VM is gone (billing off, permanently) and the LAN fallback box no
-> longer exists, so there is nothing serving and nothing to page about. The
-> deploy workflows this playbook refers to were deleted.
+> longer exists. Production is being re-established on the RackNerd VPS as a
+> single Docker container (`libra-prod`, bound to `127.0.0.1:9090`) behind a
+> Cloudflare tunnel; the deploy workflow is
+> `.github/workflows/deploy-production.yml`. The diagnostics and the April 2026
+> post-mortem still apply in shape; the SSH target is now the RackNerd box
+> (`RACKNERD_VPS_*` secrets, key-only).
 >
-> Kept because the diagnostics and the April 2026 post-mortem are still worth
-> having the day something is hosted again. Every host and container name below
-> is historical.
->
-> Current state and restore path: [production-status.md](./production-status.md).
+> Current state and the cutover checklist: [production-status.md](./production-status.md).
 
 > **Quick reference for production outages.** This document captures what went wrong in April 2026, how we fixed it, and what to do if it happens again.
 

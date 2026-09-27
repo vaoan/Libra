@@ -1,29 +1,26 @@
 # Infrastructure & Deployment Guide
 
-> ## ⛔ Decommissioned as of 2026-08-09 — nothing described below is running
+> ## ⚠ Blueprint of the GCP era — the host described below is gone
 >
-> **There is no production host.** GCP billing is switched off deliberately and
-> permanently (paying anything is a hard stop), so the VM at `35.238.125.109`
-> is gone and `store.furrycolombia.com` returns Cloudflare 530. The LAN box at
-> `192.168.2.71` that the fallback path used no longer exists either.
+> GCP billing is switched off deliberately and permanently, so the VM at
+> `35.238.125.109` no longer exists, and neither does the LAN fallback box at
+> `192.168.2.71`. Production is being re-established on the **RackNerd VPS
+> that runs the Spotify→Discord bridge**, as one Docker container behind a
+> dashboard-managed Cloudflare tunnel, deployed by
+> `.github/workflows/deploy-production.yml`. Every app is served from the one
+> origin `store.furrycolombia.com`, path-routed; there are no subdomains.
 >
-> The three deploy workflows — `deploy-gcp.yml`, `deploy-local.yml` and
-> `deploy-production.yml` — were deleted, because each pointed at one of those
-> two dead hosts and `deploy-gcp.yml` fired on every push to `main`, which would
-> have produced a failing deploy at the next release.
+> **For the current state, the new host, and what still gates the cutover,
+> see [production-status.md](./production-status.md).** The sections below
+> record how the GCP deployment was built. Read the GCP hostnames, IPs,
+> `deploy-gcp.yml`, `deploy-local.yml`, the webhook receiver, PM2 and Hestia as
+> "what it was". Still current: the Docker image recipe (now
+> `docker/ci/Dockerfile`), the nginx path routing, the Supabase and Clerk
+> dashboard notes, and the operational Docker commands.
 >
-> **This document is kept as a blueprint, not a description of reality.** It
-> still records how the thing was built, which is what you would want when
-> standing something up again. Read every hostname, IP and container name here
-> as "what it was", not "what it is". The server-side files in
-> `scripts/server/` and `scripts/deploy-production.sh` are kept for the same
-> reason and are inert — nothing invokes them.
->
-> Deleted workflows are recoverable from git history.
->
-> **For the current state and how to bring production back, see
-> [production-status.md](./production-status.md)** — it records why it went
-> down, which domain is which, and the one credential still missing.
+> The old server-side files in `scripts/server/` (`webhook-deploy.mjs`,
+> `libra-nginx.conf`, the Hestia templates) are inert; the live ones are
+> `provision-racknerd.sh` and `audio-priority.sh`.
 
 > Everything needed to reproduce the production environment from scratch — whether migrating servers, recovering from failure, or moving to cloud.
 
