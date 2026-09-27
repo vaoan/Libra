@@ -12,15 +12,15 @@
 
 ## Where each piece stands
 
-| Piece             | State                                                                                                                                        |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Host              | **Ready.** The RackNerd VPS that runs the Spotify→Discord bridge, provisioned by `scripts/server/provision-racknerd.sh` on 2026-09-27.       |
-| Database          | **Ready.** Supabase `olafyajipvsltohagiah` un-paused, wiped, migrated from the baseline, restored from the 2026-09-27 snapshot and verified. |
-| Image             | **Ready.** `docker/ci/Dockerfile` builds the production image; CI builds it on every PR.                                                     |
-| Deploy pipeline   | **Ready, untested against the box.** `.github/workflows/deploy-production.yml`; the dry run needs the branch merged to `develop` first.      |
-| Cloudflare tunnel | **Blocked on a token.** `cloudflared` is installed on the box but not configured. See [The tunnel](#the-tunnel).                             |
-| Clerk production  | **Blocked on the dashboard.** Apps still point at the development instance. See [Clerk](#clerk-production-instance).                         |
-| Scheduled backups | **Running.** `backup-scheduled.yml` re-enabled 2026-09-27, daily 04:00 UTC; it doubles as the keepalive against another Supabase pause.      |
+| Piece             | State                                                                                                                                               |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Host              | **Ready.** The RackNerd VPS that runs the Spotify→Discord bridge, provisioned by `scripts/server/provision-racknerd.sh` on 2026-09-27.              |
+| Database          | **Ready.** Supabase `olafyajipvsltohagiah` un-paused, wiped, migrated from the baseline, restored from the 2026-09-27 snapshot and verified.        |
+| Image             | **Ready.** `docker/ci/Dockerfile` builds the production image; CI builds it on every PR.                                                            |
+| Deploy pipeline   | **Ready, untested against the box.** `.github/workflows/deploy-production.yml`; the dry run needs the branch merged to `develop` first.             |
+| Cloudflare tunnel | **Blocked on a token.** `cloudflared` is installed on the box but not configured. See [The tunnel](#the-tunnel).                                    |
+| Clerk production  | **Ready.** Production instance live at `clerk.furrycolombia.com`; libra points at it from the next deploy. See [Clerk](#clerk-production-instance). |
+| Scheduled backups | **Running.** `backup-scheduled.yml` re-enabled 2026-09-27, daily 04:00 UTC; it doubles as the keepalive against another Supabase pause.             |
 
 ## What happened, briefly
 
@@ -149,32 +149,35 @@ same be scripted, but is not required.
 ## Clerk production instance
 
 The apps assume one Clerk instance on one domain; nothing in code changes.
-Dashboard steps, done once, before the first authenticated request:
+The production instance was created on 2026-09-27 from the aeleos side
+(`aeleos/docs/deployment.md` §1 records how) and is shared with aeleos. Done:
 
-1. Create the production instance with primary domain
-   `store.furrycolombia.com`. Create the DNS records Clerk lists in the
-   `furrycolombia.com` zone as **DNS-only** records.
-2. Re-create the Google and Discord OAuth apps for the production origin.
-3. Copy the production publishable key, secret key and frontend-API domain
-   into the repository secrets `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` and
-   `CLERK_DOMAIN`, in this repository and in `aeleos`, which shares the
-   instance.
-4. Set the sign-in, sign-up and after-sign-in paths under `/auth/<locale>/...`.
-5. **Change `SUPABASE_CLERK_DOMAIN` in `.env.prod`** from
-   `regular-puma-47.clerk.accounts.dev` to the production frontend-API domain,
-   and set the same value on the production Supabase project's third-party
-   auth provider. If this is skipped, every authenticated Supabase call falls
-   back to the anon key and returns nothing, with no error.
-6. Restrict allowed redirect origins to `https://store.furrycolombia.com`.
+- Primary domain `furrycolombia.com`, frontend API `clerk.furrycolombia.com`,
+  the five DNS-only CNAMEs in place and verified; JWKS and OpenID discovery
+  answer 200.
+- Google (`AeleOS sign-in (Clerk production)`, GCP project
+  `furrycolombia-candyshop`) and Discord (`Furry Colombia`) OAuth apps entered
+  into the instance's connections. Password sign-up off.
+- Clerk's Supabase integration activated on the production instance, so its
+  tokens carry `role=authenticated`.
+- The production Supabase project trusts the issuer
+  `https://clerk.furrycolombia.com` (third-party auth entry
+  `e2c78d94-…`, added 2026-09-27 through the Management API). It trusts
+  nothing else: the development instance never reaches production data.
+- libra reads the keys as the repository secrets `PROD_CLERK_PUBLISHABLE_KEY`,
+  `PROD_CLERK_SECRET_KEY` and `PROD_CLERK_DOMAIN`; `.env.prod` and
+  `deploy-production.yml` reference those. The unprefixed `CLERK_*` secrets
+  stay on the development instance for CI, and the E2E guard refuses any
+  `sk_live_` key.
 
 `scripts/clerk-email-parity.mjs` lists restored profiles with no matching
-Clerk user. Against the development instance it reports 192 of 196; the 4 real
-accounts match. After promotion that list is the support list: those users
-sign in fresh and are re-linked by email.
+Clerk user. The production instance starts with zero users, so every one of
+the 196 profiles is re-linked by email on its owner's first sign-in; the
+parity list is the support list if someone's email changed.
 
 ## Cutover, strictly ordered
 
-1. Clerk production live and verified.
+1. Clerk production live and verified — **done 2026-09-27**; libra switches to it on the next deploy.
 2. Database restored and verified — **done 2026-09-27**.
 3. Container deployed via the workflow, healthcheck green, audio unaffected
    under load.
