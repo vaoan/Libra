@@ -60,6 +60,9 @@ export function ensureRunRegistered(): Promise<void> {
 /**
  * Never throws into the test: a failed registration is exactly the row prune
  * must not miss, so it is recorded and the runner marks the run `failed`.
+ *
+ * A failure is also appended to `E2E_RUN_FAILURES_FILE` when the runner set
+ * one, so the parent process learns about it and marks the run failed.
  */
 export async function registerRow(
   tableName: string,
