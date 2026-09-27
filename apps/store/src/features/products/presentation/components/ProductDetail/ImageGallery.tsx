@@ -40,6 +40,12 @@ function getProductImages(images: unknown): ProductImage[] {
  *
  * When the product has real images, they are displayed.
  * When no images exist, a gradient placeholder with the product type is shown.
+ *
+ * Every thumbnail and the main image always carry a non-empty accessible
+ * name: the image's own alt when it is non-empty, otherwise a numbered
+ * "view image" label for thumbnails and the product name for the main image.
+ * An empty alt string, which seed data does produce, must never become an
+ * empty aria-label (axe: button-name).
  */
 export function ImageGallery({ product, theme }: ImageGalleryProps) {
   const tTypes = useTranslations("productTypes");
