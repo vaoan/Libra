@@ -106,6 +106,9 @@ per-seller isolation are therefore enforced in the database, not in the UI.
 | **payments** | `:5005` | `/payments` | both      | Checkout, orders, payment methods, receipts, reports      |
 | **studio**   | `:5006` | `/studio`   | sellers   | Products, orders, delegated seller admins                 |
 
+Ports are the per-app `next dev` ports from `config/app-links.json`; every
+environment, dev included, serves all six from one origin by route.
+
 `apps/store` is the **reference implementation** — when apps disagree on a pattern,
 store wins.
 
@@ -383,17 +386,22 @@ ships as a devDependency.
 ```bash
 pnpm install
 pnpm sync-secrets     # pulls .secrets from GitHub repository secrets
-pnpm dev              # all 7 apps, .env.dev, Supabase Cloud dev project
+pnpm dev              # six apps + dev proxy, .env.dev, local Docker Supabase
 ```
 
-| App        | URL                                |
-| ---------- | ---------------------------------- |
-| Landing    | `http://localhost:5004`            |
-| Store      | `http://localhost:5001/store`      |
-| Admin      | `http://localhost:5002/admin`      |
-| Payments   | `http://localhost:5005/payments`   |
-| Studio     | `http://localhost:5006/studio`     |
-| Auth       | `http://localhost:5000/auth`       |
+`pnpm dev` also starts `scripts/dev-proxy.mjs` on `HOST_PORT` (5050), which
+fronts the six dev servers by path prefix exactly as nginx does in the
+container. Use these URLs; the per-app ports in `config/app-links.json` are
+an implementation detail.
+
+| App      | URL                              |
+| -------- | -------------------------------- |
+| Landing  | `http://localhost:5050`          |
+| Store    | `http://localhost:5050/store`    |
+| Admin    | `http://localhost:5050/admin`    |
+| Payments | `http://localhost:5050/payments` |
+| Studio   | `http://localhost:5050/studio`   |
+| Auth     | `http://localhost:5050/auth`     |
 
 `pnpm dev` clears every `.next` cache first — stale caches and rotated env vars are a
 classic source of phantom bugs here.
@@ -405,7 +413,12 @@ pnpm --filter store dev        # or studio / admin / landing / payments
 pnpm --filter auth-app dev     # note: the auth app's package name is auth-app
 ```
 
-**Env debug viewer** — `http://localhost:5002/en/env`, enabled by `ENV_DEBUG=true`
+This starts that app alone on Next's default port under its `basePath`
+(`http://localhost:3000/store/en`). Cross-app links still point at the proxy on
+`:5050`, where nothing is listening, so use it for work inside one app only;
+`pnpm dev` is the way to exercise sign-in, cart or any cross-app flow.
+
+**Env debug viewer** — `http://localhost:5050/admin/en/env`, enabled by `ENV_DEBUG=true`
 (already on in `.env.dev`). It shows every resolved variable the apps actually see.
 
 ---

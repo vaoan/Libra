@@ -81,24 +81,15 @@ describe("writePermCache", () => {
     );
   });
 
-  it("does NOT pre-delete when domain is undefined (localhost dev)", () => {
-    setHostname("localhost");
+  it("never pre-deletes and never sets a domain, on any hostname", () => {
+    setHostname("store.example.com", "https:");
     writePermCache(["products.create"]);
 
     expect(mockDeleteCookie).not.toHaveBeenCalled();
-  });
-
-  it("pre-deletes the no-domain cookie before setting when domain is present", () => {
-    setHostname("store.example.com");
-    writePermCache(["products.create"]);
-
-    expect(mockDeleteCookie).toHaveBeenCalledWith("libra-perm", {
-      path: "/",
-    });
     expect(mockSetCookie).toHaveBeenCalledWith(
       "libra-perm",
       expect.any(String),
-      expect.objectContaining({ domain: ".example.com" }),
+      { path: "/", sameSite: "lax", secure: true, maxAge: 3600 },
     );
   });
 
@@ -120,29 +111,15 @@ describe("clearPermCache", () => {
     vi.clearAllMocks();
   });
 
-  it("calls deleteCookie once with base options when domain is undefined", () => {
-    setHostname("localhost");
-    clearPermCache();
-
-    expect(mockDeleteCookie).toHaveBeenCalledTimes(1);
-    expect(mockDeleteCookie).toHaveBeenCalledWith(
-      "libra-perm",
-      expect.objectContaining({ path: "/" }),
-    );
-  });
-
-  it("calls deleteCookie twice when domain is present (double-delete pattern)", () => {
+  it("deletes exactly once with host-only options, on any hostname", () => {
     setHostname("store.example.com");
     clearPermCache();
 
-    expect(mockDeleteCookie).toHaveBeenCalledTimes(2);
-    expect(mockDeleteCookie).toHaveBeenNthCalledWith(
-      1,
-      "libra-perm",
-      expect.objectContaining({ domain: ".example.com" }),
-    );
-    expect(mockDeleteCookie).toHaveBeenNthCalledWith(2, "libra-perm", {
+    expect(mockDeleteCookie).toHaveBeenCalledTimes(1);
+    expect(mockDeleteCookie).toHaveBeenCalledWith("libra-perm", {
       path: "/",
+      sameSite: "lax",
+      secure: false,
     });
   });
 });

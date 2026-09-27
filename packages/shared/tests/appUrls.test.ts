@@ -1,14 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const EXPECTED_DEV_URLS = {
-  landing: "http://localhost:5004",
-  store: "http://localhost:5001",
-  studio: "http://localhost:5006",
-  payments: "http://localhost:5005",
-  admin: "http://localhost:5002",
-  auth: "http://localhost:5000",
-} as const;
-
 const EXPECTED_PROD_PATHS = {
   landing: "/",
   store: "/store",
@@ -39,12 +30,12 @@ afterEach(() => {
 });
 
 describe("appUrls", () => {
-  it("uses local app URLs by default in development", async () => {
+  it("falls back to relative same-origin paths in development too", async () => {
     vi.stubEnv("NODE_ENV", "development");
     clearAppUrlEnvVars();
 
     const { appUrls } = await importFreshAppUrls();
-    expect(appUrls).toEqual(EXPECTED_DEV_URLS);
+    expect(appUrls).toEqual(EXPECTED_PROD_PATHS);
   });
 
   it("uses relative same-domain paths by default in production", async () => {

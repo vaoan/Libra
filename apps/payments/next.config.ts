@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import createNextIntlPlugin from "next-intl/plugin";
 
+import appLinks from "../../config/app-links.json";
+
 const withNextIntl = createNextIntlPlugin(
   "./src/shared/infrastructure/i18n/request.ts",
 );
@@ -63,8 +65,6 @@ const securityHeaders = [
 ];
 
 const isStandalone = process.env.STANDALONE === "true";
-const basePathPrefix = process.env.BASE_PATH_PREFIX || "";
-const allowedDevOrigins = ["payments.ffxivbe.org"];
 
 // Derive production host for server action CSRF allowlist.
 // Next.js compares Origin vs X-Forwarded-Host; Cloudflare→nginx forwarding can
@@ -80,7 +80,9 @@ function parseHost(url: string | undefined): string | null {
 const productionHost = parseHost(process.env.NEXT_PUBLIC_PAYMENTS_URL);
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins,
+  // One origin, routed by path prefix, in every environment (nginx in prod,
+  // scripts/dev-proxy.mjs in dev). The registry is the single source.
+  basePath: appLinks.payments.path,
   ...(productionHost && {
     serverActions: {
       allowedOrigins: [productionHost],
@@ -92,7 +94,6 @@ const nextConfig: NextConfig = {
   },
   ...(isStandalone && {
     output: "standalone" as const,
-    basePath: `${basePathPrefix}/payments`,
     outputFileTracingRoot: path.join(__dirname, "../.."),
   }),
   transpilePackages: [

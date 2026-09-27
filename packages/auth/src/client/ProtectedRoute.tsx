@@ -7,7 +7,7 @@ import { useCurrentUser } from "./useCurrentUser";
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  /** Full URL to the auth app (e.g. "http://localhost:5000") */
+  /** Full URL to the auth app (e.g. "http://localhost:5050/auth") */
   authUrl: string;
   /** Current locale for the redirect URL */
   locale: string;

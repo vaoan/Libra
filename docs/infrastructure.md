@@ -193,7 +193,7 @@ Three environments with clear separation: dev (local), e2e (Docker + isolated Su
 
 | Env     | Apps                    | Supabase             | Port | Auth redirects                             |
 | ------- | ----------------------- | -------------------- | ---- | ------------------------------------------ |
-| dev     | Vite local (5000–5006)  | Local CLI (54321)    | —    | localhost:5000–5006                        |
+| dev     | `next dev` ×6 + proxy   | Local Docker (54331) | —    | localhost:5050 (one origin, by path)       |
 | e2e     | Docker container        | Isolated CLI (64321) | 8089 | localhost:8089                             |
 | staging | Docker container        | Docker Compose       | 8088 | https://store.ffxivbe.org (via Cloudflare) |
 | prod    | Docker on remote server | Supabase Cloud       | 9090 | https://store.furrycolombia.com            |
@@ -242,7 +242,9 @@ Environment files:
 | deploy.furrycolombia.com | Cloudflare tunnel → :9091 | Webhook deploy receiver         |
 | ssh.furrycolombia.com    | Cloudflare tunnel → :22   | SSH access (for GitHub Actions) |
 
-**⚠️ Only these 3 subdomains belong to this project. `furrycolombia.com` and `moonfest.furrycolombia.com` are separate sites. Never modify their DNS records.**
+**⚠️ `store.furrycolombia.com` is the only app hostname this project routes;
+all six apps live behind it by path.** `furrycolombia.com` and
+`moonfest.furrycolombia.com` are separate sites. Never modify their DNS records.
 
 ## Cloudflare Tunnel
 

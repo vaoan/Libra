@@ -16,6 +16,14 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import treeKill from "tree-kill";
+
+import {
+  loadAppRegistry,
+  portForApp as registryPort,
+} from "./lib/app-registry.mjs";
+import { buildWarmUrls, warmRoutes } from "./lib/warm-routes.mjs";
 import { loadEnv } from "./load-env.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -173,12 +181,19 @@ if (appsMode === "docker") {
     console.log("✓ App ready\n");
   }
 } else {
-  // local mode — start dev servers if not already up
+  // local mode — start dev servers (and the dev proxy) if not already up
   const port = portForApp(targetApp);
-  const alreadyUp = await checkPort(port);
+  const proxyPort = Number.parseInt(process.env.HOST_PORT ?? "", 10);
+  if (!Number.isInteger(proxyPort)) {
+    console.error("ERROR: HOST_PORT is not set — the dev proxy needs it");
+    process.exit(1);
+  }
+  const alreadyUp = (await checkPort(port)) && (await checkPort(proxyPort));
 
   if (alreadyUp) {
-    console.log(`✓ Dev servers already running (${targetApp} on :${port})\n`);
+    console.log(
+      `✓ Dev servers already running (${targetApp} on :${port}, proxy on :${proxyPort})\n`,
+    );
   } else {
     console.log(`\n▶ pnpm dev`);
     devProc = pnpmSpawn(["dev"], {
@@ -188,8 +203,27 @@ if (appsMode === "docker") {
     });
     console.log(`   Waiting for ${targetApp} on :${port}...`);
     await waitForPort(port, 120_000);
-    console.log(`✓ ${targetApp} ready\n`);
+    console.log(`   Waiting for dev proxy on :${proxyPort}...`);
+    await waitForPort(proxyPort, 120_000);
+    console.log(`✓ ${targetApp} ready behind the proxy\n`);
   }
+
+  // Compile every route before Playwright's first click. A client-side
+  // navigation to a route Turbopack is still compiling races the HMR rebuild
+  // and can be dropped — see scripts/lib/warm-routes.mjs.
+  const warmUrls = buildWarmUrls({
+    registry: loadAppRegistry(),
+    appsDir: resolve(rootDir, "apps"),
+    origin: `http://localhost:${proxyPort}`,
+  });
+  console.log(`▶ warming ${warmUrls.length} routes through the proxy...`);
+  const warmStarted = Date.now();
+  const warmed = await warmRoutes(warmUrls);
+  const failed = warmed.filter((r) => typeof r.status !== "number");
+  console.log(
+    `✓ ${warmed.length - failed.length}/${warmed.length} routes warmed in ${Math.round((Date.now() - warmStarted) / 1000)}s\n`,
+  );
+  for (const r of failed) console.log(`   ⚠ ${r.url} → ${r.status}`);
 }
 
 // 4. Launch tunnel if enabled
@@ -245,26 +279,29 @@ const pw = pnpmSpawn(pwArgs, {
 });
 
 pw.on("exit", (code) => {
-  if (devProc) devProc.kill("SIGTERM");
   // code is null when Playwright is killed by a signal (OOM, timeout, etc.).
   // null ?? 0 would exit cleanly and mask the failure; use 1 instead.
-  process.exit(code ?? 1);
+  const exitCode = code ?? 1;
+  if (!devProc?.pid) {
+    process.exit(exitCode);
+    return;
+  }
+  // Kill the whole tree: `pnpm dev` wraps six `next dev` servers and the
+  // proxy, and on Windows a plain kill() takes only the wrapper. tree-kill is
+  // asynchronous (it spawns taskkill), so exit only once it reports back —
+  // exiting first left every dev server running after each E2E run.
+  const KILL_GRACE_MS = 10_000;
+  const bail = setTimeout(() => process.exit(exitCode), KILL_GRACE_MS);
+  treeKill(devProc.pid, () => {
+    clearTimeout(bail);
+    process.exit(exitCode);
+  });
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function portForApp(app) {
-  const key = `NEXT_PUBLIC_${app.toUpperCase()}_URL`;
-  try {
-    return Number.parseInt(new URL(process.env[key]).port, 10);
-  } catch {
-    /* fall through */
-  }
-  return (
-    { auth: 5000, store: 5001, admin: 5002, payments: 5005, landing: 5004 }[
-      app
-    ] ?? 5000
-  );
+  return registryPort(loadAppRegistry(), app);
 }
 
 async function checkPort(port) {

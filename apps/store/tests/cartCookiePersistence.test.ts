@@ -8,12 +8,6 @@ vi.mock("cookies-next", () => ({
   deleteCookie: mockDeleteCookie,
 }));
 
-const mockGetSharedCookieDomain = vi.hoisted(() => vi.fn());
-
-vi.mock("shared", () => ({
-  getSharedCookieDomain: mockGetSharedCookieDomain,
-}));
-
 vi.mock("shared/constants/cart", () => ({
   CART_COOKIE_KEY: "libra-cart",
 }));
@@ -32,6 +26,14 @@ import {
   removeCartCookie,
   COOKIE_MAX_AGE_S,
 } from "@/shared/application/cart/cartCookiePersistence";
+
+function setLocation(protocol: string, hostname: string) {
+  Object.defineProperty(globalThis, "location", {
+    value: { protocol, hostname },
+    writable: true,
+    configurable: true,
+  });
+}
 
 describe("COOKIE_MAX_AGE_S", () => {
   it("equals 30 days in seconds", () => {
@@ -55,65 +57,38 @@ describe("getCartCookieOptions — server-side (no window)", () => {
   it("returns secure: false and no domain when window is undefined", () => {
     const options = getCartCookieOptions();
     expect(options.secure).toBe(false);
-    expect(options.domain).toBeUndefined();
+    expect(options).not.toHaveProperty("domain");
     expect(options.path).toBe("/");
     expect(options.sameSite).toBe("lax");
   });
 });
 
 describe("getCartCookieOptions — browser (with window)", () => {
-  beforeEach(() => {
-    mockGetSharedCookieDomain.mockReset();
-  });
-
-  it("returns secure: true on https and includes domain when resolveSharedCookieDomain returns one", () => {
-    Object.defineProperty(globalThis, "location", {
-      value: { protocol: "https:", hostname: "store.example.com" },
-      writable: true,
-      configurable: true,
-    });
-    mockGetSharedCookieDomain.mockReturnValue(".example.com");
+  it("returns secure: true on https", () => {
+    setLocation("https:", "store.example.com");
 
     const options = getCartCookieOptions();
     expect(options.secure).toBe(true);
-    expect(options.domain).toBe(".example.com");
   });
 
   it("returns secure: false on http", () => {
-    Object.defineProperty(globalThis, "location", {
-      value: { protocol: "http:", hostname: "localhost" },
-      writable: true,
-      configurable: true,
-    });
-    mockGetSharedCookieDomain.mockReturnValue(void 0);
+    setLocation("http:", "localhost");
 
     const options = getCartCookieOptions();
     expect(options.secure).toBe(false);
-    expect(options.domain).toBeUndefined();
   });
 
-  it("omits domain when getSharedCookieDomain returns undefined", () => {
-    Object.defineProperty(globalThis, "location", {
-      value: { protocol: "https:", hostname: "localhost" },
-      writable: true,
-      configurable: true,
-    });
-    mockGetSharedCookieDomain.mockReturnValue(void 0);
+  it("never sets a domain, even on a multi-segment hostname", () => {
+    setLocation("https:", "store.example.com");
 
-    const options = getCartCookieOptions();
-    expect(options.domain).toBeUndefined();
+    expect(getCartCookieOptions()).not.toHaveProperty("domain");
   });
 });
 
 describe("persistCartCookie", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetSharedCookieDomain.mockReturnValue(void 0);
-    Object.defineProperty(globalThis, "location", {
-      value: { protocol: "http:", hostname: "localhost" },
-      writable: true,
-      configurable: true,
-    });
+    setLocation("http:", "localhost");
   });
 
   it("calls setCookie with serialized cart items", () => {
@@ -138,25 +113,15 @@ describe("persistCartCookie", () => {
     ]);
   });
 
-  it("calls deleteCookie first when domain is set (to clear root-path cookie)", () => {
-    Object.defineProperty(globalThis, "location", {
-      value: { protocol: "https:", hostname: "store.example.com" },
-      writable: true,
-      configurable: true,
-    });
-    mockGetSharedCookieDomain.mockReturnValue(".example.com");
+  it("never deletes before setting, on any hostname", () => {
+    setLocation("https:", "store.example.com");
 
     persistCartCookie([]);
 
-    expect(mockDeleteCookie).toHaveBeenCalledWith("libra-cart", {
-      path: "/",
-    });
-    expect(mockSetCookie).toHaveBeenCalledOnce();
-  });
-
-  it("does not call deleteCookie when domain is not set", () => {
-    persistCartCookie([]);
     expect(mockDeleteCookie).not.toHaveBeenCalled();
+    expect(mockSetCookie).toHaveBeenCalledOnce();
+    const options = mockSetCookie.mock.calls[0]![2] as Record<string, unknown>;
+    expect(options).not.toHaveProperty("domain");
   });
 
   it("includes maxAge in setCookie options", () => {
@@ -169,12 +134,7 @@ describe("persistCartCookie", () => {
 describe("removeCartCookie", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetSharedCookieDomain.mockReturnValue(void 0);
-    Object.defineProperty(globalThis, "location", {
-      value: { protocol: "http:", hostname: "localhost" },
-      writable: true,
-      configurable: true,
-    });
+    setLocation("http:", "localhost");
   });
 
   it("calls deleteCookie with cookie options", () => {
@@ -182,24 +142,16 @@ describe("removeCartCookie", () => {
     expect(mockDeleteCookie).toHaveBeenCalledOnce();
   });
 
-  it("calls deleteCookie twice when domain is set (once with domain, once root path)", () => {
-    Object.defineProperty(globalThis, "location", {
-      value: { protocol: "https:", hostname: "store.example.com" },
-      writable: true,
-      configurable: true,
-    });
-    mockGetSharedCookieDomain.mockReturnValue(".example.com");
+  it("deletes exactly once with host-only options, on any hostname", () => {
+    setLocation("https:", "store.example.com");
 
     removeCartCookie();
 
-    expect(mockDeleteCookie).toHaveBeenCalledTimes(2);
-    const calls = mockDeleteCookie.mock.calls as [string, unknown][];
-    expect(calls[0]![0]).toBe("libra-cart");
-    expect(calls[1]).toEqual(["libra-cart", { path: "/" }]);
-  });
-
-  it("calls deleteCookie only once when no domain", () => {
-    removeCartCookie();
     expect(mockDeleteCookie).toHaveBeenCalledTimes(1);
+    expect(mockDeleteCookie).toHaveBeenCalledWith("libra-cart", {
+      path: "/",
+      sameSite: "lax",
+      secure: true,
+    });
   });
 });

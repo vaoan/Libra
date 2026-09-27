@@ -1,5 +1,4 @@
 import { deleteCookie, setCookie } from "cookies-next";
-import { getSharedCookieDomain as resolveSharedCookieDomain } from "shared";
 import { CART_COOKIE_KEY } from "shared/constants/cart";
 import {
   HOURS_PER_DAY,
@@ -15,46 +14,36 @@ const DAYS = 30;
 export const COOKIE_MAX_AGE_S =
   DAYS * HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE;
 
+/**
+ * Host-only cookie options. Every app shares one origin, so the cookie needs
+ * no `domain` attribute — and must not have one, or it would be readable by
+ * unrelated sites on sibling subdomains.
+ */
 export function getCartCookieOptions() {
   const isSecure =
     globalThis.window !== undefined &&
     globalThis.location.protocol === "https:";
-  let sharedDomain: string | undefined;
-  if (globalThis.window !== undefined) {
-    sharedDomain = resolveSharedCookieDomain(globalThis.location.hostname);
-  }
 
   return {
     path: "/",
-    ...(sharedDomain ? { domain: sharedDomain } : {}),
     sameSite: "lax" as const,
     secure: isSecure,
   };
 }
 
 export function persistCartCookie(items: CartItem[]) {
-  const cookieOptions = getCartCookieOptions();
   const cookieItems: CartCookieItem[] = items.map((item) => ({
     id: item.id,
     quantity: item.quantity,
   }));
 
-  if (cookieOptions.domain) {
-    deleteCookie(CART_COOKIE_KEY, { path: "/" });
-  }
-
   setCookie(CART_COOKIE_KEY, JSON.stringify(cookieItems), {
-    ...cookieOptions,
+    ...getCartCookieOptions(),
     maxAge: COOKIE_MAX_AGE_S,
   });
 }
 
 export function removeCartCookie() {
-  const cookieOptions = getCartCookieOptions();
-  deleteCookie(CART_COOKIE_KEY, cookieOptions);
-
-  if (cookieOptions.domain !== undefined) {
-    deleteCookie(CART_COOKIE_KEY, { path: "/" });
-  }
+  deleteCookie(CART_COOKIE_KEY, getCartCookieOptions());
 }
 export { CART_COOKIE_KEY as COOKIE_KEY } from "shared/constants/cart";
