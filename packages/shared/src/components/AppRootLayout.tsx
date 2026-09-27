@@ -1,21 +1,28 @@
 /* eslint-disable @next/next/no-head-element */
 "use server";
 
-import { DM_Sans, Syne } from "next/font/google";
+import localFont from "next/font/local";
 import type { ReactNode } from "react";
 
 import { ThemeScript } from "./ThemeScript";
 
-const syne = Syne({
+// Vendored (OFL) variable fonts under ../fonts. The Google-hosted font loader
+// fetched these at build time, and that fetch failed repeatedly in Docker and
+// on GitHub's runners on 2026-09-27, blocking the production image. A build
+// must need no network. scripts/__tests__/no-google-fonts.test.mjs guards
+// against reintroducing the network loader.
+const syne = localFont({
+  src: "../fonts/syne-latin-wght.woff2",
   variable: "--font-syne",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: "400 800",
+  display: "swap",
 });
 
-const dmSans = DM_Sans({
+const dmSans = localFont({
+  src: "../fonts/dm-sans-latin-wght.woff2",
   variable: "--font-dm-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: "400 700",
+  display: "swap",
 });
 
 interface AppRootLayoutProps {
