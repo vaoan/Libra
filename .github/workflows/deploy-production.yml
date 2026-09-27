@@ -16,6 +16,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      test_ids:
+        description: "Build with data-testid attributes for a manual production E2E window (the tag gets a suffix, :latest is not moved). Redeploy with false afterwards."
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-production
@@ -29,6 +34,9 @@ env:
   IMAGE: ghcr.io/vaoan/libra-prod
   DEPLOY_DIR: /opt/libra
   HOST_PORT: "9090"
+  # The test-id suffix for a manual E2E window, '' otherwise (inputs.* is
+  # empty on a push event).
+  TAG_SUFFIX: ${{ inputs.test_ids == true && '-testids' || '' }}
 
 jobs:
   deploy:
@@ -58,7 +66,7 @@ jobs:
           {
             grep -E '^NEXT_PUBLIC_(SUPABASE_URL|AUTH_URL|AUTH_HOST_URL|STORE_URL|ADMIN_URL|LANDING_URL|PAYMENTS_URL|STUDIO_URL)=' .env.prod
             echo "NEXT_PUBLIC_BUILD_HASH=${GITHUB_SHA::7}"
-            echo "NEXT_PUBLIC_ENABLE_TEST_IDS=false"
+            echo "NEXT_PUBLIC_ENABLE_TEST_IDS=${{ inputs.test_ids == true && 'true' || 'false' }}"
             echo "NEXT_PUBLIC_ENV_DEBUG=false"
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.PROD_SUPABASE_ANON_KEY }}"
             echo "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.PROD_CLERK_PUBLISHABLE_KEY }}"
@@ -77,8 +85,8 @@ jobs:
           file: docker/ci/Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE }}:${{ github.sha }}
-            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}${{ env.TAG_SUFFIX }}
+            ${{ inputs.test_ids != true && format('{0}:latest', env.IMAGE) || '' }}
           build-args: ${{ steps.args.outputs.list }}
           cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
@@ -89,7 +97,7 @@ jobs:
         run: |
           set -euo pipefail
           cat > env.prod.rendered <<EOF
-          SITE_PROD_IMAGE_NAME=${IMAGE}:${GITHUB_SHA}
+          SITE_PROD_IMAGE_NAME=${IMAGE}:${GITHUB_SHA}${TAG_SUFFIX}
           SITE_PROD_CONTAINER_NAME=libra-prod
           HOST_PORT=${HOST_PORT}
           CLERK_SECRET_KEY=${{ secrets.PROD_CLERK_SECRET_KEY }}
@@ -101,6 +109,7 @@ jobs:
           EOF
 
       - name: Prepare SSH
+        id: ssh
         env:
           KEY: ${{ secrets.RACKNERD_VPS_SSH_KEY }}
         run: |
@@ -154,7 +163,7 @@ jobs:
         run: ssh box "free -m | head -2; docker stats --no-stream --format '{{.Name}} {{.MemUsage}} {{.CPUPerc}}'"
 
       - name: Roll back on failure
-        if: failure()
+        if: failure() && steps.ssh.outcome == 'success'
         run: |
           set -euo pipefail
           ssh box "cd ${DEPLOY_DIR} && if [ -f env.prod.previous ]; then mv -f env.prod.previous env.prod.rendered && docker compose --env-file env.prod.rendered up -d && echo 'rolled back to previous image'; else echo 'no previous env to roll back to'; fi"

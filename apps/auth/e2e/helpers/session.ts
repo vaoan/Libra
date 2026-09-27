@@ -5,7 +5,9 @@ import { clerk, clerkSetup } from "@clerk/testing/playwright";
 import type { BrowserContext } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
-import { assertNotProductionClerk } from "./guardEnv";
+import { mintProductionSessionToken } from "./clerkSession";
+import { assertNotProductionClerk, productionGuardContext } from "./guardEnv";
+import { registerRow, runScopedToken } from "./runRegistry";
 import { attachProfileId, registerClerkUser } from "./userRegistry";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- shared Node helper
@@ -50,7 +52,7 @@ if (!CLERK_SECRET_KEY)
     "CLERK_SECRET_KEY is not set. Ensure the correct .env.* file is loaded.",
   );
 const CLERK_SECRET_KEY_VALUE: string = CLERK_SECRET_KEY;
-assertNotProductionClerk(CLERK_SECRET_KEY_VALUE);
+assertNotProductionClerk(CLERK_SECRET_KEY_VALUE, productionGuardContext());
 
 const AUTH_URL: string = resolveE2EAppUrls().auth;
 
@@ -93,6 +95,10 @@ export const supabaseAdmin = createClient(
  * Direct REST helper for data operations that need to bypass RLS.
  * The JS client with sb_secret_ keys doesn't bypass RLS for PostgREST,
  * but raw REST API calls with the same key do.
+ *
+ * Inside a production run (`E2E_RUN_ID` set) the returned row's `id` is
+ * registered in `e2e_run_rows` so the run's prune can delete it; outside one
+ * the registration is a no-op.
  */
 export async function adminInsert(
   table: string,
@@ -111,7 +117,9 @@ export async function adminInsert(
     throw new Error(`Admin insert into ${table} failed: ${err.message}`);
   }
   const rows = await res.json();
-  return rows[0];
+  const row = rows[0] as Record<string, unknown>;
+  if (typeof row?.id === "string") await registerRow(table, row.id);
+  return row;
 }
 
 /**
@@ -334,6 +342,11 @@ export async function deleteClerkUserBySub(clerkUserId: string): Promise<void> {
  * No browser page is involved, so this is safe to call from
  * `test.beforeAll`, before any `context`/`page` fixture exists — exactly how
  * every consumer of this function already calls it.
+ *
+ * Production runs: the email carries the run id instead of `Date.now()`, the
+ * Clerk user id and profile id are registered for prune, and the session JWT
+ * is minted through a sign-in token because production instances refuse
+ * Backend-API sessions (clerkSession.ts). Development keys keep the SDK path.
  */
 export async function createTestUser(
   label: string,
@@ -341,7 +354,7 @@ export async function createTestUser(
 ): Promise<TestUser> {
   // A Clerk dev-instance test email (`+clerk_test` subaddress): no real
   // inbox, no verification email actually sent, unique per run.
-  const email = `e2e-${label}-${Date.now()}+clerk_test@example.com`;
+  const email = `e2e-${label}-${runScopedToken()}+clerk_test@example.com`;
 
   const clerkUser = await clerkClient.users.createUser({
     emailAddress: [email],
@@ -353,6 +366,7 @@ export async function createTestUser(
   // exact "throws inside beforeAll" gap the old afterAll convention leaked
   // on; see userRegistry.ts's RegisteredUser doc comment.
   registerClerkUser({ clerkUserId: clerkUser.id, email });
+  await registerRow("clerk_users", clerkUser.id);
 
   const { data: profile, error } = await supabaseAdmin.rpc(
     "create_profile_with_default_permissions",
@@ -374,23 +388,40 @@ export async function createTestUser(
   // the full deleteTestUser (profile row + Clerk user) instead of the
   // Clerk-only fallback.
   attachProfileId(clerkUser.id, profileId);
+  await registerRow("user_profiles", profileId);
 
   if (permissions.length > 0) {
     await grantPermissions(profileId, permissions);
   }
 
   // A real backend session — see the `accessToken` doc comment on TestUser.
-  const session = await clerkClient.sessions.createSession({
-    userId: clerkUser.id,
-  });
-  const token = await clerkClient.sessions.getToken(session.id);
+  // Production instances refuse Backend-API sessions, so a live key goes
+  // through a sign-in token instead (clerkSession.ts); development keeps the
+  // SDK path unchanged.
+  const jwt = CLERK_SECRET_KEY_VALUE.startsWith("sk_live_")
+    ? await mintProductionSessionToken({
+        secretKey: CLERK_SECRET_KEY_VALUE,
+        domain: process.env.NEXT_PUBLIC_CLERK_DOMAIN,
+        userId: clerkUser.id,
+      })
+    : await mintDevelopmentSessionToken(clerkUser.id);
 
   return {
     userId: profileId,
     email,
     clerkUserId: clerkUser.id,
-    accessToken: token.jwt,
+    accessToken: jwt,
   };
+}
+
+async function mintDevelopmentSessionToken(
+  clerkUserId: string,
+): Promise<string> {
+  const session = await clerkClient.sessions.createSession({
+    userId: clerkUserId,
+  });
+  const token = await clerkClient.sessions.getToken(session.id);
+  return token.jwt;
 }
 
 /**
