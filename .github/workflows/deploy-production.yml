@@ -121,8 +121,12 @@ jobs:
       - name: Deploy over SSH
         run: |
           set -euo pipefail
-          ssh box "mkdir -p ${DEPLOY_DIR} && cp -f ${DEPLOY_DIR}/env.prod.rendered ${DEPLOY_DIR}/env.prod.previous 2>/dev/null || true"
+          ssh box "mkdir -p ${DEPLOY_DIR} && chmod 700 ${DEPLOY_DIR} && cp -f ${DEPLOY_DIR}/env.prod.rendered ${DEPLOY_DIR}/env.prod.previous 2>/dev/null || true"
           scp env.prod.rendered docker/compose.yml box:${DEPLOY_DIR}/
+          # scp applies the box's umask, which left the rendered env file
+          # (Clerk secret, service-role key) world-readable on the first
+          # deploy. Owner-only, and the same for the rollback copy.
+          ssh box "chmod 600 ${DEPLOY_DIR}/env.prod.rendered; chmod 600 ${DEPLOY_DIR}/env.prod.previous 2>/dev/null || true"
           # The runner's token lets the box pull this job's image even while
           # the package is private.
           echo "${{ secrets.GITHUB_TOKEN }}" | ssh box "docker login ghcr.io -u ${{ github.actor }} --password-stdin"
