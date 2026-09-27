@@ -1,12 +1,13 @@
 /**
- * Mint a real Clerk session JWT for a user without a browser.
+ * Mint a real Clerk session JWT for a user on a PRODUCTION instance, without
+ * a browser.
  *
- * Development instances allow `POST /v1/sessions` on the Backend API.
- * Production instances refuse it ("Request only valid for development
- * instances"), so there the Backend API issues a sign-in token and the
- * Frontend API consumes it in native mode (`_is_native=1`, client token in
- * the `Authorization` header) and signs the session JWT. The key prefix
- * picks the path. Every failure throws — the caller owns a user to delete.
+ * Development instances allow `POST /v1/sessions` on the Backend API, and
+ * session.ts keeps using the SDK for that. Production instances refuse it
+ * ("Request only valid for development instances"), so here the Backend API
+ * issues a sign-in token and the Frontend API consumes it in native mode
+ * (`_is_native=1`, client token in the `Authorization` header) and signs the
+ * session JWT. Every failure throws — the caller owns a user to delete.
  * Spec: docs/superpowers/specs/2026-09-27-production-e2e-design.md §7.
  */
 
@@ -19,7 +20,7 @@ export interface MintArgs {
   fetchImpl?: typeof fetch;
 }
 
-export async function mintSessionToken({
+export async function mintProductionSessionToken({
   secretKey,
   domain,
   userId,
@@ -47,14 +48,10 @@ export async function mintSessionToken({
   };
 
   if (!secretKey.startsWith("sk_live_")) {
-    const session = await backend("/sessions", { user_id: userId });
-    const minted = await backend(
-      `/sessions/${session.id as string}/tokens`,
-      {},
+    throw new Error(
+      "mintProductionSessionToken is for sk_live_ keys; development keys mint through the SDK in session.ts.",
     );
-    return (minted.jwt ?? minted.token) as string;
   }
-
   if (!domain) {
     throw new Error(
       "CLERK_DOMAIN is required to mint on a production instance.",

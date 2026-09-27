@@ -5,7 +5,7 @@ import { clerk, clerkSetup } from "@clerk/testing/playwright";
 import type { BrowserContext } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
-import { mintSessionToken } from "./clerkSession";
+import { mintProductionSessionToken } from "./clerkSession";
 import { assertNotProductionClerk, productionGuardContext } from "./guardEnv";
 import { registerRow, runScopedToken } from "./runRegistry";
 import { attachProfileId, registerClerkUser } from "./userRegistry";
@@ -386,13 +386,16 @@ export async function createTestUser(
   }
 
   // A real backend session — see the `accessToken` doc comment on TestUser.
-  // Production instances refuse Backend-API sessions; clerkSession.ts picks
-  // the path by key prefix.
-  const jwt = await mintSessionToken({
-    secretKey: CLERK_SECRET_KEY_VALUE,
-    domain: process.env.NEXT_PUBLIC_CLERK_DOMAIN,
-    userId: clerkUser.id,
-  });
+  // Production instances refuse Backend-API sessions, so a live key goes
+  // through a sign-in token instead (clerkSession.ts); development keeps the
+  // SDK path unchanged.
+  const jwt = CLERK_SECRET_KEY_VALUE.startsWith("sk_live_")
+    ? await mintProductionSessionToken({
+        secretKey: CLERK_SECRET_KEY_VALUE,
+        domain: process.env.NEXT_PUBLIC_CLERK_DOMAIN,
+        userId: clerkUser.id,
+      })
+    : await mintDevelopmentSessionToken(clerkUser.id);
 
   return {
     userId: profileId,
@@ -400,6 +403,16 @@ export async function createTestUser(
     clerkUserId: clerkUser.id,
     accessToken: jwt,
   };
+}
+
+async function mintDevelopmentSessionToken(
+  clerkUserId: string,
+): Promise<string> {
+  const session = await clerkClient.sessions.createSession({
+    userId: clerkUserId,
+  });
+  const token = await clerkClient.sessions.getToken(session.id);
+  return token.jwt;
 }
 
 /**

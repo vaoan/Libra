@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { mintSessionToken } from "../e2e/helpers/clerkSession";
+import { mintProductionSessionToken } from "../e2e/helpers/clerkSession";
 
 function jsonResponse(
   body: unknown,
@@ -17,22 +17,18 @@ function jsonResponse(
 const calledUrls = (fetchImpl: ReturnType<typeof vi.fn>) =>
   fetchImpl.mock.calls.map((call) => call[0]);
 
-describe("mintSessionToken", () => {
-  it("uses the Backend API session on a development key", async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ id: "sess_1" }))
-      .mockResolvedValueOnce(jsonResponse({ jwt: "dev.jwt" }));
-    const jwt = await mintSessionToken({
-      secretKey: "sk_test_x",
-      userId: "user_1",
-      fetchImpl,
-    });
-    expect(jwt).toBe("dev.jwt");
-    expect(calledUrls(fetchImpl)).toEqual([
-      "https://api.clerk.com/v1/sessions",
-      "https://api.clerk.com/v1/sessions/sess_1/tokens",
-    ]);
+describe("mintProductionSessionToken", () => {
+  it("refuses a development key before any request", async () => {
+    const fetchImpl = vi.fn();
+    await expect(
+      mintProductionSessionToken({
+        secretKey: "sk_test_x",
+        domain: "clerk.furrycolombia.com",
+        userId: "user_1",
+        fetchImpl,
+      }),
+    ).rejects.toThrow(/for sk_live_ keys/);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("uses a sign-in token redeemed through the Frontend API on a live key", async () => {
@@ -46,7 +42,7 @@ describe("mintSessionToken", () => {
         ),
       )
       .mockResolvedValueOnce(jsonResponse({ jwt: "live.jwt" }));
-    const jwt = await mintSessionToken({
+    const jwt = await mintProductionSessionToken({
       secretKey: "sk_live_x",
       domain: "clerk.furrycolombia.com",
       userId: "user_1",
@@ -67,7 +63,11 @@ describe("mintSessionToken", () => {
   it("refuses a live key without a domain before any request", async () => {
     const fetchImpl = vi.fn();
     await expect(
-      mintSessionToken({ secretKey: "sk_live_x", userId: "user_1", fetchImpl }),
+      mintProductionSessionToken({
+        secretKey: "sk_live_x",
+        userId: "user_1",
+        fetchImpl,
+      }),
     ).rejects.toThrow(/CLERK_DOMAIN is required/);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
@@ -80,7 +80,7 @@ describe("mintSessionToken", () => {
         jsonResponse({ response: {} }, { headers: { authorization: "c" } }),
       );
     await expect(
-      mintSessionToken({
+      mintProductionSessionToken({
         secretKey: "sk_live_x",
         domain: "clerk.furrycolombia.com",
         userId: "user_1",

@@ -6,6 +6,10 @@ vi.mock("@clerk/backend", () => ({
       createUser: vi.fn(async () => ({ id: "user_1" })),
       deleteUser: vi.fn(async () => {}),
     },
+    sessions: {
+      createSession: vi.fn(async () => ({ id: "sess_1" })),
+      getToken: vi.fn(async () => ({ jwt: "dev.jwt" })),
+    },
   }),
 }));
 
@@ -23,27 +27,10 @@ describe("createTestUser inside a production run", () => {
     process.env.CLERK_SECRET_KEY ??= "sk_test_stub";
     process.env.E2E_RUN_ID = RUN;
     process.env.E2E_PRODUCTION_ACK = RUN;
-    // Development-key mint: POST /sessions then POST /sessions/:id/tokens.
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ id: "sess_1" }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ jwt: "dev.jwt" }),
-        }),
-    );
   });
   afterEach(() => {
     delete process.env.E2E_RUN_ID;
     delete process.env.E2E_PRODUCTION_ACK;
-    vi.unstubAllGlobals();
     vi.resetModules();
   });
 
