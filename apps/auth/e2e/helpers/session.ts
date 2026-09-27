@@ -5,7 +5,9 @@ import { clerk, clerkSetup } from "@clerk/testing/playwright";
 import type { BrowserContext } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
+import { mintSessionToken } from "./clerkSession";
 import { assertNotProductionClerk, productionGuardContext } from "./guardEnv";
+import { registerRow, runScopedToken } from "./runRegistry";
 import { attachProfileId, registerClerkUser } from "./userRegistry";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- shared Node helper
@@ -111,7 +113,9 @@ export async function adminInsert(
     throw new Error(`Admin insert into ${table} failed: ${err.message}`);
   }
   const rows = await res.json();
-  return rows[0];
+  const row = rows[0] as Record<string, unknown>;
+  if (typeof row?.id === "string") await registerRow(table, row.id);
+  return row;
 }
 
 /**
@@ -341,7 +345,7 @@ export async function createTestUser(
 ): Promise<TestUser> {
   // A Clerk dev-instance test email (`+clerk_test` subaddress): no real
   // inbox, no verification email actually sent, unique per run.
-  const email = `e2e-${label}-${Date.now()}+clerk_test@example.com`;
+  const email = `e2e-${label}-${runScopedToken()}+clerk_test@example.com`;
 
   const clerkUser = await clerkClient.users.createUser({
     emailAddress: [email],
@@ -353,6 +357,7 @@ export async function createTestUser(
   // exact "throws inside beforeAll" gap the old afterAll convention leaked
   // on; see userRegistry.ts's RegisteredUser doc comment.
   registerClerkUser({ clerkUserId: clerkUser.id, email });
+  await registerRow("clerk_users", clerkUser.id);
 
   const { data: profile, error } = await supabaseAdmin.rpc(
     "create_profile_with_default_permissions",
@@ -374,22 +379,26 @@ export async function createTestUser(
   // the full deleteTestUser (profile row + Clerk user) instead of the
   // Clerk-only fallback.
   attachProfileId(clerkUser.id, profileId);
+  await registerRow("user_profiles", profileId);
 
   if (permissions.length > 0) {
     await grantPermissions(profileId, permissions);
   }
 
   // A real backend session — see the `accessToken` doc comment on TestUser.
-  const session = await clerkClient.sessions.createSession({
+  // Production instances refuse Backend-API sessions; clerkSession.ts picks
+  // the path by key prefix.
+  const jwt = await mintSessionToken({
+    secretKey: CLERK_SECRET_KEY_VALUE,
+    domain: process.env.NEXT_PUBLIC_CLERK_DOMAIN,
     userId: clerkUser.id,
   });
-  const token = await clerkClient.sessions.getToken(session.id);
 
   return {
     userId: profileId,
     email,
     clerkUserId: clerkUser.id,
-    accessToken: token.jwt,
+    accessToken: jwt,
   };
 }
 

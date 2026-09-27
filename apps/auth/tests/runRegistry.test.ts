@@ -35,7 +35,10 @@ describe("runRegistry", () => {
     await registerRow("products", "p1");
     expect(runScopedToken()).toBe(RUN);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0];
+    const [url, init] = fetchSpy.mock.calls[0] as [
+      string,
+      { method: string; headers: Record<string, string>; body: string },
+    ];
     expect(url).toBe("http://localhost:54321/rest/v1/e2e_run_rows");
     expect(init.method).toBe("POST");
     expect(init.headers.apikey).toBe("srk");

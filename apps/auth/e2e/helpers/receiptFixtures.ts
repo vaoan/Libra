@@ -1,6 +1,7 @@
 import { type Page, expect } from "@playwright/test";
 
 import { ELEMENT_TIMEOUT_MS, MUTATION_WAIT_MS } from "./constants";
+import { registerRow } from "./runRegistry";
 
 /**
  * 1x1 transparent PNG. Used as the upload body so a real image streams back
@@ -50,6 +51,8 @@ export async function uploadTestReceipt(
       `Failed to upload e2e receipt file: ${response.status} ${body}`,
     );
   }
+  // `storagePath` is `<order_id>/<file>`; prune deletes the whole prefix.
+  await registerRow("storage:receipts", storagePath.split("/")[0]);
 }
 
 /**
