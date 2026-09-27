@@ -20,9 +20,10 @@ import { compareCounts } from "./verify-restore.mjs";
 
 const args = process.argv.slice(2);
 const envFlag = args.indexOf("--env");
-loadEnv(envFlag !== -1 ? args[envFlag + 1] : "prod");
+const envName = envFlag !== -1 ? args[envFlag + 1] : "prod";
+loadEnv(envName);
 const snapshotDir = args.find(
-  (a) => !a.startsWith("--") && a !== args[envFlag + 1],
+  (a, i) => !a.startsWith("--") && !(envFlag !== -1 && i === envFlag + 1),
 );
 if (!snapshotDir || !existsSync(resolve(snapshotDir, "manifest.json"))) {
   console.error(
