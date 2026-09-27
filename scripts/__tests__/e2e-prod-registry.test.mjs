@@ -130,4 +130,49 @@ describe("e2e-prod-registry", () => {
     expect(result.failures).toEqual(["products prod_1: HTTP 500"]);
     expect(result.deleted.clerk).toBe(1);
   });
+
+  it("profilesForRun unions registered ids with profiles whose email carries the run id", async () => {
+    const fetchImpl = vi
+      .fn()
+      // registered profile ids
+      .mockResolvedValueOnce(ok([{ row_id: "prof_reg" }]))
+      // profiles found by email (one overlaps, one was never registered)
+      .mockResolvedValueOnce(ok([{ id: "prof_reg" }, { id: "prof_orphan" }]));
+    const profiles = await registry(fetchImpl).profilesForRun(RUN);
+    expect(profiles.map((p) => p.id).sort()).toEqual([
+      "prof_orphan",
+      "prof_reg",
+    ]);
+    const emailQuery = decodeURIComponent(fetchImpl.mock.calls[1][0]);
+    expect(emailQuery).toContain(
+      "user_profiles?select=id&email=like.*-" + RUN + "+clerk_test@example.com",
+    );
+  });
+
+  it("unclaimedProfiles lists e2e profiles whose run id is not a known run", async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(
+      ok([
+        { id: "p1", email: `e2e-a-${RUN}+clerk_test@example.com` },
+        {
+          id: "p2",
+          email: "e2e-b-e2e-20260927-1800-0000+clerk_test@example.com",
+        },
+        { id: "p3", email: "e2e-c-1727000000000+clerk_test@example.com" },
+      ]),
+    );
+    const orphans = await registry(fetchImpl).unclaimedProfiles(new Set([RUN]));
+    expect(orphans.map((p) => p.id)).toEqual(["p2", "p3"]);
+  });
+
+  it("a failed storage listing is a recorded failure, not an empty prefix", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(ok({ message: "nope" }, 500));
+    const result = await registry(fetchImpl).executePlan(
+      [{ kind: "storage", ids: ["order_1"] }],
+      { dryRun: false },
+    );
+    expect(result.failures).toEqual(["storage order_1: HTTP 500"]);
+    expect(result.deleted.storage).toBe(0);
+  });
 });

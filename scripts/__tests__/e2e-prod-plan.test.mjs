@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPrunePlan, runIdFromEmail } from "../lib/e2e-prod-plan.mjs";
+import {
+  auditVerdict,
+  buildPrunePlan,
+  runIdFromEmail,
+} from "../lib/e2e-prod-plan.mjs";
 
 const RUN = "e2e-20260927-1930-a3f1";
 const OTHER = "e2e-20260927-1800-0000";
@@ -82,5 +86,37 @@ describe("runIdFromEmail", () => {
       runIdFromEmail("e2e-x-1727000000000+clerk_test@example.com"),
     ).toBeNull();
     expect(runIdFromEmail("someone@gmail.com")).toBeNull();
+  });
+});
+
+describe("auditVerdict", () => {
+  const clean = {
+    runs: [{ status: "passed", leftover_rows: 0 }],
+    unclaimedUsers: 0,
+    unclaimedProfiles: 0,
+    testIds: false,
+  };
+  it("is clean only when nothing is off", () => {
+    expect(auditVerdict(clean)).toEqual({ dirty: false, reasons: [] });
+  });
+  it("flags a running run, leftovers, unclaimed users or profiles, live test ids, and an unknown site", () => {
+    expect(
+      auditVerdict({
+        ...clean,
+        runs: [{ status: "running", leftover_rows: 0 }],
+      }).reasons,
+    ).toEqual(["a run is still running"]);
+    expect(
+      auditVerdict({ ...clean, runs: [{ status: "failed", leftover_rows: 3 }] })
+        .reasons,
+    ).toEqual(["3 leftover row(s) across runs"]);
+    expect(auditVerdict({ ...clean, unclaimedUsers: 1 }).dirty).toBe(true);
+    expect(auditVerdict({ ...clean, unclaimedProfiles: 2 }).dirty).toBe(true);
+    expect(auditVerdict({ ...clean, testIds: true }).reasons).toEqual([
+      "production serves test ids",
+    ]);
+    expect(auditVerdict({ ...clean, testIds: null }).reasons).toEqual([
+      "could not read the public site",
+    ]);
   });
 });

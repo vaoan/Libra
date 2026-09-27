@@ -7,7 +7,11 @@ import { createClient } from "@supabase/supabase-js";
 
 import { mintProductionSessionToken } from "./clerkSession";
 import { assertNotProductionClerk, productionGuardContext } from "./guardEnv";
-import { registerRow, runScopedToken } from "./runRegistry";
+import {
+  ensureRunRegistered,
+  registerRow,
+  runScopedToken,
+} from "./runRegistry";
 import { attachProfileId, registerClerkUser } from "./userRegistry";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- shared Node helper
@@ -352,6 +356,7 @@ export async function createTestUser(
   label: string,
   permissions: string[] = [],
 ): Promise<TestUser> {
+  await ensureRunRegistered();
   // A Clerk dev-instance test email (`+clerk_test` subaddress): no real
   // inbox, no verification email actually sent, unique per run.
   const email = `e2e-${label}-${runScopedToken()}+clerk_test@example.com`;

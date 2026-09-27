@@ -7,7 +7,11 @@
  * Spec: docs/superpowers/specs/2026-09-27-production-e2e-design.md §6, §9.
  */
 
+import { runIdFromEmail } from "./e2e-prod-plan.mjs";
+
 const CLERK_API = "https://api.clerk.com/v1";
+/** PostgREST `like` pattern for every E2E profile; `+` must be sent as %2B. */
+const E2E_EMAIL_LIKE = "e2e-*%2Bclerk_test@example.com";
 const CLERK_PAGE = 100;
 
 export function createRegistry({
@@ -63,7 +67,13 @@ export function createRegistry({
         body: JSON.stringify({ prefix: `${prefix}/`, limit: 1000 }),
       },
     );
-    const objects = listed.ok ? await listed.json() : [];
+    if (!listed.ok) {
+      // An unreadable listing must surface as a failure: reading it as
+      // "nothing to delete" would let the run pass and clear the
+      // registration while the files stay behind.
+      throw new Error(`storage list ${prefix} -> HTTP ${listed.status}`);
+    }
+    const objects = await listed.json();
     const names = (Array.isArray(objects) ? objects : []).map(
       (o) => `${prefix}/${o.name}`,
     );
@@ -150,12 +160,33 @@ export function createRegistry({
       );
     },
 
+    /**
+     * The run's profiles: the registered ids, plus any `user_profiles` row
+     * whose email carries the run id — a profile created by the app's own
+     * resolveProfile() before the test registered it, or one whose
+     * registration failed. Both queries are positive matches on the run id.
+     */
     async profilesForRun(runId) {
       const rows = await rest(
         "GET",
         `e2e_run_rows?select=row_id&run_id=eq.${runId}&table_name=eq.user_profiles`,
       );
-      return rows.map((r) => ({ id: r.row_id }));
+      const byEmail = await rest(
+        "GET",
+        `user_profiles?select=id&email=like.*-${runId}%2Bclerk_test@example.com`,
+      );
+      const ids = new Set(rows.map((r) => r.row_id));
+      for (const p of byEmail) ids.add(p.id);
+      return [...ids].map((id) => ({ id }));
+    },
+
+    /** E2E-looking profiles whose run id is not one of `knownRuns`. */
+    async unclaimedProfiles(knownRuns) {
+      const rows = await rest(
+        "GET",
+        `user_profiles?select=id,email&email=like.${E2E_EMAIL_LIKE}`,
+      );
+      return rows.filter((p) => !knownRuns.has(runIdFromEmail(p.email)));
     },
 
     async ordersForProfiles(profileIds) {

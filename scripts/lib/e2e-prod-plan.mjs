@@ -89,3 +89,32 @@ export function buildPrunePlan({
     { kind: "clerk", ids: clerkIds },
   ];
 }
+
+/**
+ * The audit's verdict. Conservative on purpose: leftovers, an unreadable
+ * public site and anything unclaimed all count as dirty, because the audit
+ * is the recovery path for a run nothing else finished.
+ * `testIds` is true/false when the site was read, null when it was not.
+ */
+export function auditVerdict({
+  runs,
+  unclaimedUsers,
+  unclaimedProfiles,
+  testIds,
+}) {
+  const reasons = [];
+  if (runs.some((r) => r.status === "running")) {
+    reasons.push("a run is still running");
+  }
+  const leftovers = runs.reduce((n, r) => n + (r.leftover_rows ?? 0), 0);
+  if (leftovers > 0) reasons.push(`${leftovers} leftover row(s) across runs`);
+  if (unclaimedUsers > 0) {
+    reasons.push(`${unclaimedUsers} e2e clerk user(s) without a known run`);
+  }
+  if (unclaimedProfiles > 0) {
+    reasons.push(`${unclaimedProfiles} e2e profile(s) without a known run`);
+  }
+  if (testIds === true) reasons.push("production serves test ids");
+  if (testIds === null) reasons.push("could not read the public site");
+  return { dirty: reasons.length > 0, reasons };
+}

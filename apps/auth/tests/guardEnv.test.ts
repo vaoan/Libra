@@ -32,6 +32,11 @@ describe("assertNotProductionClerk", () => {
     ["ack differs from run id", { ...ok, ack: "e2e-20260927-1930-ffff" }],
     ["ack set but run id unset", { ...ok, runId: undefined }],
     ["both empty strings", { ...ok, runId: "", ack: "" }],
+    ["run id is not in the run id format", { ...ok, runId: "x", ack: "x" }],
+    [
+      "run id is a bare timestamp",
+      { ...ok, runId: "1727000000000", ack: "1727000000000" },
+    ],
     ["env is staging", { ...ok, targetEnv: "staging" }],
     ["host is staging", { ...ok, baseUrl: "https://store.ffxivbe.org/store" }],
     [

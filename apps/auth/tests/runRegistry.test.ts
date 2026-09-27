@@ -1,3 +1,7 @@
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const RUN = "e2e-20260927-1930-a3f1";
@@ -17,6 +21,7 @@ describe("runRegistry", () => {
   });
   afterEach(() => {
     delete process.env.E2E_RUN_ID;
+    delete process.env.E2E_RUN_FAILURES_FILE;
     vi.unstubAllGlobals();
   });
 
@@ -33,7 +38,9 @@ describe("runRegistry", () => {
     fetchSpy.mockResolvedValue({ ok: true, status: 201, text: async () => "" });
     const { registerRow, runScopedToken } = await load();
     await registerRow("products", "p1");
-    expect(runScopedToken()).toBe(RUN);
+    // Unique per call inside a run, and still ending in the run id so the
+    // email pattern (`-<run_id>+clerk_test@`) keeps matching.
+    expect(runScopedToken()).toMatch(new RegExp(`^\\d{13}-${RUN}$`));
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0] as [
       string,
@@ -69,6 +76,62 @@ describe("runRegistry", () => {
     setRowRegistrar(fake);
     await registerRow("clerk_users", "user_1");
     expect(fake).toHaveBeenCalledWith("clerk_users", "user_1");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("appends each failure to E2E_RUN_FAILURES_FILE so the runner can read it", async () => {
+    process.env.E2E_RUN_ID = RUN;
+    const dir = mkdtempSync(join(tmpdir(), "e2e-fail-"));
+    process.env.E2E_RUN_FAILURES_FILE = join(dir, "failures.log");
+    fetchSpy.mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => "boom",
+    });
+    const { registerRow } = await load();
+    await registerRow("orders", "o1");
+    await registerRow("products", "p1");
+    expect(
+      readFileSync(process.env.E2E_RUN_FAILURES_FILE, "utf8")
+        .trim()
+        .split("\n"),
+    ).toEqual(["orders/o1: HTTP 500 boom", "products/p1: HTTP 500 boom"]);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("ensureRunRegistered throws when e2e_runs has no row for the run id", async () => {
+    process.env.E2E_RUN_ID = RUN;
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => "[]",
+      json: async () => [],
+    });
+    const { ensureRunRegistered } = await load();
+    await expect(ensureRunRegistered()).rejects.toThrow(/no e2e_runs row/);
+    const [url] = fetchSpy.mock.calls[0] as [string];
+    expect(url).toBe(
+      `http://localhost:54321/rest/v1/e2e_runs?select=run_id&run_id=eq.${RUN}`,
+    );
+  });
+
+  it("ensureRunRegistered passes once, then caches", async () => {
+    process.env.E2E_RUN_ID = RUN;
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify([{ run_id: RUN }]),
+      json: async () => [{ run_id: RUN }],
+    });
+    const { ensureRunRegistered } = await load();
+    await ensureRunRegistered();
+    await ensureRunRegistered();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("ensureRunRegistered is a no-op without a run id", async () => {
+    const { ensureRunRegistered } = await load();
+    await expect(ensureRunRegistered()).resolves.toBeUndefined();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
