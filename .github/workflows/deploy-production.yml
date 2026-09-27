@@ -109,6 +109,7 @@ jobs:
           EOF
 
       - name: Prepare SSH
+        id: ssh
         env:
           KEY: ${{ secrets.RACKNERD_VPS_SSH_KEY }}
         run: |
@@ -162,7 +163,7 @@ jobs:
         run: ssh box "free -m | head -2; docker stats --no-stream --format '{{.Name}} {{.MemUsage}} {{.CPUPerc}}'"
 
       - name: Roll back on failure
-        if: failure()
+        if: failure() && steps.ssh.outcome == 'success'
         run: |
           set -euo pipefail
           ssh box "cd ${DEPLOY_DIR} && if [ -f env.prod.previous ]; then mv -f env.prod.previous env.prod.rendered && docker compose --env-file env.prod.rendered up -d && echo 'rolled back to previous image'; else echo 'no previous env to roll back to'; fi"

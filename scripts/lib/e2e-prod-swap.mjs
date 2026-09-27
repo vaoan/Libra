@@ -56,13 +56,35 @@ export async function waitForTestIds({
   }
 }
 
+async function latestRun(runGh) {
+  const out = await runGh([
+    "run",
+    "list",
+    "--workflow",
+    "deploy-production.yml",
+    "--limit",
+    "1",
+    "--json",
+    "databaseId,createdAt",
+  ]);
+  const [latest] = JSON.parse(out || "[]");
+  return latest ?? null;
+}
+
+/**
+ * Dispatches the deploy and returns the id of the run it created. The new
+ * run is recognised by id — the latest run changing from what it was before
+ * the dispatch — never by comparing createdAt with the local clock: the
+ * first rehearsal (2026-09-27) saw GitHub stamp the run three seconds
+ * before the caller's `Date.now()`, and a clock comparison waited forever.
+ */
 export async function dispatchDeploy({
   testIds,
   ref,
   runGh = runGhCli,
-  since = new Date(),
   sleep = defaultSleep,
 }) {
+  const before = await latestRun(runGh);
   await runGh([
     "workflow",
     "run",
@@ -73,18 +95,8 @@ export async function dispatchDeploy({
     `test_ids=${testIds ? "true" : "false"}`,
   ]);
   for (let attempt = 0; attempt < 30; attempt += 1) {
-    const out = await runGh([
-      "run",
-      "list",
-      "--workflow",
-      "deploy-production.yml",
-      "--limit",
-      "1",
-      "--json",
-      "databaseId,createdAt",
-    ]);
-    const [latest] = JSON.parse(out || "[]");
-    if (latest && new Date(latest.createdAt) >= since) {
+    const latest = await latestRun(runGh);
+    if (latest && latest.databaseId !== before?.databaseId) {
       return String(latest.databaseId);
     }
     await sleep(5_000);

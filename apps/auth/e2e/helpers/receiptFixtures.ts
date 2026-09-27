@@ -18,6 +18,9 @@ export const RECEIPT_FILENAME = "receipt-e2e.png";
  * Upload a fake receipt PNG to the Supabase `receipts` bucket using the
  * service role. The orchestrator handles authorization; the bucket is
  * private, so signed-URL retrieval is exercised on the read side.
+ *
+ * Inside a production run the `<order_id>` prefix of `storagePath` is
+ * registered as `storage:receipts` so prune removes the whole folder.
  */
 export async function uploadTestReceipt(
   storagePath: string,
@@ -52,7 +55,10 @@ export async function uploadTestReceipt(
     );
   }
   // `storagePath` is `<order_id>/<file>`; prune deletes the whole prefix.
-  await registerRow("storage:receipts", storagePath.split("/")[0]);
+  await registerRow(
+    "storage:receipts",
+    storagePath.split("/")[0] ?? storagePath,
+  );
 }
 
 /**

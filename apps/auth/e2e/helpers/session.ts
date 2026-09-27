@@ -95,6 +95,10 @@ export const supabaseAdmin = createClient(
  * Direct REST helper for data operations that need to bypass RLS.
  * The JS client with sb_secret_ keys doesn't bypass RLS for PostgREST,
  * but raw REST API calls with the same key do.
+ *
+ * Inside a production run (`E2E_RUN_ID` set) the returned row's `id` is
+ * registered in `e2e_run_rows` so the run's prune can delete it; outside one
+ * the registration is a no-op.
  */
 export async function adminInsert(
   table: string,
@@ -338,6 +342,11 @@ export async function deleteClerkUserBySub(clerkUserId: string): Promise<void> {
  * No browser page is involved, so this is safe to call from
  * `test.beforeAll`, before any `context`/`page` fixture exists — exactly how
  * every consumer of this function already calls it.
+ *
+ * Production runs: the email carries the run id instead of `Date.now()`, the
+ * Clerk user id and profile id are registered for prune, and the session JWT
+ * is minted through a sign-in token because production instances refuse
+ * Backend-API sessions (clerkSession.ts). Development keys keep the SDK path.
  */
 export async function createTestUser(
   label: string,

@@ -62,12 +62,42 @@ describe("waitForTestIds", () => {
 });
 
 describe("dispatchDeploy", () => {
+  it("identifies the new run by id, even when its createdAt predates the caller's clock (no clock comparison)", async () => {
+    const runGh = vi
+      .fn()
+      // gh run list BEFORE dispatch: run 1 is the latest
+      .mockResolvedValueOnce(
+        JSON.stringify([{ databaseId: 1, createdAt: "2026-09-27T19:50:00Z" }]),
+      )
+      // gh workflow run
+      .mockResolvedValueOnce("")
+      // gh run list AFTER: still 1 (not yet visible)
+      .mockResolvedValueOnce(
+        JSON.stringify([{ databaseId: 1, createdAt: "2026-09-27T19:50:00Z" }]),
+      )
+      // gh run list AFTER: run 2 appeared, created 3 s BEFORE the caller's clock
+      .mockResolvedValueOnce(
+        JSON.stringify([{ databaseId: 2, createdAt: "2026-09-27T19:53:16Z" }]),
+      );
+    const id = await dispatchDeploy({
+      testIds: true,
+      ref: "develop",
+      runGh,
+      sleep: async () => undefined,
+    });
+    expect(id).toBe("2");
+  });
+
   it("dispatches with the test_ids input and returns the new run id", async () => {
     const runGh = vi
       .fn()
+      // gh run list before dispatch: run 1 is the latest
+      .mockResolvedValueOnce(
+        JSON.stringify([{ databaseId: 1, createdAt: "2026-09-27T19:30:00Z" }]),
+      )
       // gh workflow run
       .mockResolvedValueOnce("")
-      // gh run list (before dispatch there was run 1; now 2 is newest)
+      // gh run list after: run 2 is the latest
       .mockResolvedValueOnce(
         JSON.stringify([{ databaseId: 2, createdAt: "2026-09-27T19:31:00Z" }]),
       );
@@ -75,11 +105,10 @@ describe("dispatchDeploy", () => {
       testIds: true,
       ref: "develop",
       runGh,
-      since: new Date("2026-09-27T19:30:00Z"),
       sleep: async () => undefined,
     });
     expect(id).toBe("2");
-    expect(runGh.mock.calls[0][0]).toEqual([
+    expect(runGh.mock.calls[1][0]).toEqual([
       "workflow",
       "run",
       "deploy-production.yml",

@@ -41,6 +41,15 @@ describe("deploy-production.yml test_ids input", () => {
     );
   });
 
+  it("only rolls back when SSH was actually prepared", () => {
+    // A build failure happens before "Prepare SSH"; the rollback step must
+    // not then try to ssh to an unconfigured host (exit 255, seen 2026-09-27).
+    expect(workflow).toMatch(/- name: Prepare SSH\s+id: ssh/);
+    expect(workflow).toMatch(
+      /- name: Roll back on failure\s+if: failure\(\) && steps\.ssh\.outcome == 'success'/,
+    );
+  });
+
   it("never tags a push-to-main build with -testids", () => {
     // The only place the suffix is computed reads inputs.test_ids, which is
     // empty on a push event, so the expression yields ''.
