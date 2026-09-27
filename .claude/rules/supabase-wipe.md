@@ -19,7 +19,7 @@ DEV_SUPABASE_ACCESS_TOKEN=sbp_...
 PROD_SUPABASE_ACCESS_TOKEN=sbp_...
 ```
 
-> **Note:** Direct port 5432 (Postgres) connections are blocked on Supabase Cloud from outside AWS. All DB operations must go through the Management API REST endpoint.
+> **Note:** Direct port 5432 (Postgres) connections are blocked on Supabase Cloud from outside AWS, but the **connection pooler** (port 6543) is reachable with `PROD_SUPABASE_DB_PASSWORD`. The Management API REST endpoint below is the default path; the pooler is the fallback when the PAT is stale.
 
 ---
 
@@ -50,7 +50,7 @@ Expected response: `[]` with HTTP 201.
 
 ## Step 2: Apply All Migrations
 
-Run all 27 migration files in order using the Management API:
+The repo now carries a single baseline migration, `supabase/migrations/20260902120000_baseline.sql` (the 27 earlier files were squashed into it). The loop below still works for any number of files; today it applies one:
 
 ```bash
 TOKEN="<DEV_SUPABASE_ACCESS_TOKEN or PROD_SUPABASE_ACCESS_TOKEN>"
@@ -87,15 +87,28 @@ for f in supabase/migrations/*.sql; do
 done
 ```
 
-All 27 files in `supabase/migrations/` should return ✅.
+Every file in `supabase/migrations/` (currently the single baseline) should return ✅.
 
 ---
 
 ## Known Issues and Fixes
 
-### `audit.logged_actions` already exists (42P07)
+### `multiple primary keys for table "logged_actions"` (42P16)
 
-Supabase Cloud provides a built-in `audit` schema with `logged_actions`. The migration `20260325400000_audit_system.sql` was updated to use `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS` so it is idempotent.
+The `audit` and `audit_archive` schemas are Libra's own (created by earlier
+migrations, not by an extension). Dropping only `public` leaves them behind,
+and the baseline's `ADD CONSTRAINT logged_actions_pkey` then collides with the
+surviving table's primary key, so the whole baseline query fails. Drop them
+with the public schema (verified on prod 2026-09-27: `audit.logged_actions`
+had 0 rows and no extension dependency):
+
+```sql
+DROP SCHEMA IF EXISTS audit CASCADE;
+DROP SCHEMA IF EXISTS audit_archive CASCADE;
+```
+
+The earlier "already exists (42P07)" note about `CREATE TABLE IF NOT EXISTS` is
+superseded by this: the table statement is idempotent, the constraint is not.
 
 ### Table filter for data-only wipe
 
@@ -157,5 +170,5 @@ Expected tables after migration: `check_in_audit`, `check_ins`, `events`, `order
 ## Related
 
 - `.secrets` — PATs and service role keys
-- `supabase/migrations/` — All 27 migration files
+- `supabase/migrations/` — the baseline migration (earlier files were squashed into it)
 - [Git Safety](.claude/rules/git-safety.md) — Never commit secrets

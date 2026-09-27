@@ -1,0 +1,160 @@
+# Production deploy to the RackNerd host (co-located with the Spotify bridge).
+#
+# Push to main (or run by hand) → build the six-app image on GitHub's runners
+# (Linux, where next/font downloads work — a Windows-built standalone does not
+# survive into a Linux image) → push to GHCR → SSH to the box → compose pull &
+# up → health gate on the container's own /health → roll back on failure.
+#
+# The image recipe is docker/ci/Dockerfile: the exact image every PR's E2E
+# job already exercises. docker/prod/Dockerfile (pre-built artifacts) is the
+# legacy GCP recipe and is not used here.
+#
+# See docs/superpowers/specs/2026-09-05-production-re-release-design.md §7.
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/vaoan/libra-prod
+  DEPLOY_DIR: /opt/libra
+  HOST_PORT: "9090"
+
+jobs:
+  deploy:
+    name: Build, push, deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Public build-time values come from .env.prod so the workflow never
+      # restates them; secret ones come from repository secrets. Only
+      # NEXT_PUBLIC_* reaches the client bundle.
+      - name: Collect build args from .env.prod
+        id: args
+        run: |
+          set -euo pipefail
+          {
+            grep -E '^NEXT_PUBLIC_(SUPABASE_URL|AUTH_URL|AUTH_HOST_URL|STORE_URL|ADMIN_URL|LANDING_URL|PAYMENTS_URL|STUDIO_URL)=' .env.prod
+            echo "NEXT_PUBLIC_BUILD_HASH=${GITHUB_SHA::7}"
+            echo "NEXT_PUBLIC_ENABLE_TEST_IDS=false"
+            echo "NEXT_PUBLIC_ENV_DEBUG=false"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.PROD_SUPABASE_ANON_KEY }}"
+            echo "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.CLERK_PUBLISHABLE_KEY }}"
+            echo "NEXT_PUBLIC_CLERK_DOMAIN=${{ secrets.CLERK_DOMAIN }}"
+          } > build-args.txt
+          {
+            echo 'list<<EOF'
+            cat build-args.txt
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/ci/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          build-args: ${{ steps.args.outputs.list }}
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
+
+      # load-env.mjs skips .secrets when CI=true, so every runtime value is
+      # supplied explicitly here rather than resolved from $secret: refs.
+      - name: Render the runtime env file
+        run: |
+          set -euo pipefail
+          cat > env.prod.rendered <<EOF
+          SITE_PROD_IMAGE_NAME=${IMAGE}:${GITHUB_SHA}
+          SITE_PROD_CONTAINER_NAME=libra-prod
+          HOST_PORT=${HOST_PORT}
+          CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY=${{ secrets.PROD_SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL_INTERNAL=
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_THREAD_ID=${{ secrets.TELEGRAM_THREAD_ID }}
+          EOF
+
+      - name: Prepare SSH
+        env:
+          KEY: ${{ secrets.RACKNERD_VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key
+          cat > ~/.ssh/config <<EOF
+          Host box
+            HostName ${{ secrets.RACKNERD_VPS_IP }}
+            User ${{ secrets.RACKNERD_VPS_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking accept-new
+            BatchMode yes
+          EOF
+
+      - name: Deploy over SSH
+        run: |
+          set -euo pipefail
+          ssh box "mkdir -p ${DEPLOY_DIR} && cp -f ${DEPLOY_DIR}/env.prod.rendered ${DEPLOY_DIR}/env.prod.previous 2>/dev/null || true"
+          scp env.prod.rendered docker/compose.yml box:${DEPLOY_DIR}/
+          # The runner's token lets the box pull this job's image even while
+          # the package is private.
+          echo "${{ secrets.GITHUB_TOKEN }}" | ssh box "docker login ghcr.io -u ${{ github.actor }} --password-stdin"
+          ssh box "cd ${DEPLOY_DIR} && docker compose --env-file env.prod.rendered pull && docker compose --env-file env.prod.rendered up -d --remove-orphans"
+
+      # The container's own /health, reached on the box's loopback: definitive
+      # for "the deploy is up" and independent of the tunnel.
+      - name: Health gate (container)
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 40); do
+            code=$(ssh box "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${HOST_PORT}/health" || true)
+            if [ "$code" = "200" ]; then echo "healthy after $i checks"; exit 0; fi
+            echo "attempt $i: $code"; sleep 5
+          done
+          echo "health gate failed"; exit 1
+
+      - name: Public reachability (informational)
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://store.furrycolombia.com/health || true)
+          echo "https://store.furrycolombia.com/health -> $code"
+          [ "$code" = "200" ] || echo "::warning::Public URL is not answering 200 — check the Cloudflare Tunnel on the box."
+
+      - name: Memory on the box (informational)
+        run: ssh box "free -m | head -2; docker stats --no-stream --format '{{.Name}} {{.MemUsage}} {{.CPUPerc}}'"
+
+      - name: Roll back on failure
+        if: failure()
+        run: |
+          set -euo pipefail
+          ssh box "cd ${DEPLOY_DIR} && if [ -f env.prod.previous ]; then mv -f env.prod.previous env.prod.rendered && docker compose --env-file env.prod.rendered up -d && echo 'rolled back to previous image'; else echo 'no previous env to roll back to'; fi"
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

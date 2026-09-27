@@ -115,6 +115,10 @@ COPY docker/prod/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # `/en/callback` navigation could intermittently see the container refuse
 # connections even though the earlier `/en/login` navigation had succeeded.
 COPY docker/warmer.sh /app/warmer.sh
+# supervisord.conf runs boot-reporter as a program; without the file the
+# program exits 1 harmlessly in CI, but the production deploy builds this
+# same image and wants the Telegram boot report.
+COPY docker/boot-reporter.mjs /app/boot-reporter.mjs
 
 RUN chown -R nextjs:nodejs /app && \
     chmod +x /app/warmer.sh
