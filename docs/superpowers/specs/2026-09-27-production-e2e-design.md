@@ -104,9 +104,11 @@ Order, all filtered by the run's id and nothing else:
    items, check-ins, transfers).
 3. Registered rows in `e2e_run_rows`, newest first, skipping tables already
    emptied by cascade.
-4. `products` whose `name_en` starts with `e2e-<run_id>-` — needed because
-   `products.seller_id` is `on delete set null`, so deleting the seller would
-   orphan them rather than remove them.
+4. `products` owned by the run's sellers, registered by the run, or whose
+   `slug` starts with `e2e-<run_id>` — needed because `products.seller_id` is
+   `on delete set null`, so deleting the seller would orphan them rather than
+   remove them, and because the studio UI creates products the helpers never
+   see.
 5. `user_profiles` of the run.
 6. Clerk users on the production instance whose email contains `-<run_id>+clerk_test@`.
 7. `e2e_run_rows` of the run. The `e2e_runs` row is **kept** as the audit

@@ -47,6 +47,9 @@ Run e2e dev --fix
 | `--ci`         | flag                                                | off                | Match GitHub Actions runtime config: `workers=1`, `retries=2`, headless. Disables skill-level flaky-detection retry (Playwright retries instead). Mutually exclusive with `--headed`, `--ui`, `--debug`, `--replay`. |
 | `--timeout`    | milliseconds                                        | Playwright default | Override per-test timeout for slow environments                                                                                                                                                                      |
 
+> Production is never a target here; it is manual via `pnpm e2e:prod` (see
+> `docs/production-e2e.md`).
+
 **UX tests are included by default.** Pass `--no-ux` to skip them (e.g. for a fast smoke run). Do not require the user to opt-in — if they didn't say "skip ux" or "no ux", run them.
 
 Google OAuth tests are always skipped automatically (they require live Google credentials and are explicitly skipped by the specs themselves).

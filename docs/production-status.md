@@ -189,4 +189,6 @@ parity list is the support list if someone's email changed.
 - [Infrastructure & Deployment Guide](./infrastructure.md) — the GCP-era
   blueprint; the RackNerd setup above supersedes its host sections.
 - [Production Incident Playbook](./production-incident-playbook.md)
+- [Production E2E runbook](./production-e2e.md) — manual Playwright runs
+  against the live store, run-scoped and prunable
 - [Environment System](./environment.md)
