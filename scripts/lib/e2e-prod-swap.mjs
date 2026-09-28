@@ -169,6 +169,12 @@ export function runSshCli(command, target = boxSshTarget()) {
  * `env.prod.previous` is clean. A later normal deploy makes the previous env
  * the test-id one, and restoring it would bring test ids back, so "clean
  * already" is a no-op and a test-id previous refuses.
+ *
+ * Once the clean image is back, every image on the box that is neither the
+ * serving one nor the previous one is removed — the window's `-testids`
+ * image above all. Each is 1.09 GB and the box has 19 GB; on 2026-09-28 the
+ * disk filled and production answered 502. The prune can never fail the
+ * restore.
  */
 export async function restorePreviousImage({
   runSsh = runSshCli,
