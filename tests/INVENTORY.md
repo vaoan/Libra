@@ -6,7 +6,7 @@ Every test case in the repo, so a refactor can be checked for losses:
 regenerate and diff. Counting files or totals is not enough -- a rework
 can keep both and still drop the one assertion that mattered.
 
-**2770 cases across 385 files** (0 skipped, 10 parameterised).
+**2772 cases across 385 files** (0 skipped, 10 parameterised).
 
 Source-level cases: a `.each` case is one entry here and many in vitest
 output, so this total is deliberately not the runner total.
@@ -1815,7 +1815,7 @@ output, so this total is deliberately not the runner total.
 - toYouTubeEmbedUrl > handles embed URL with http scheme
 - toYouTubeEmbedUrl > handles video IDs with hyphens and underscores
 
-## app:store -- 330 cases
+## app:store -- 332 cases
 
 ### `apps/store/tests/AccordionItem.test.tsx`
 
@@ -2199,6 +2199,8 @@ output, so this total is deliberately not the runner total.
 - SearchBar > sets query to null for empty string after typing
 - SearchBar > initialises with null query treated as empty string
 - SearchBar > syncs local value when external query changes
+- SearchBar > flushes the pending debounced search to the URL when the input loses focus
+- SearchBar > does not write the URL on blur when nothing is pending
 
 ### `apps/store/tests/SectionRenderer.test.tsx`
 

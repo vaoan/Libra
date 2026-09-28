@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Manual production E2E session. Never run from CI.
+ * Production E2E session. Run by hand, or by .github/workflows/e2e-production.yml
+ * (the only CI job allowed to, via E2E_PROD_CI_ALLOWED; see e2e-prod-guard.mjs).
  *
  *   pnpm e2e:prod --i-am-running-against-production [--app <name>] [--ref <branch>] [-- <playwright args>]
  *
@@ -19,6 +20,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { pruneRun } from "./e2e-prod-prune.mjs";
+import { ciRefusal } from "./lib/e2e-prod-guard.mjs";
 import { buildPlaywrightCommand } from "./lib/e2e-prod-playwright.mjs";
 import { createRegistry } from "./lib/e2e-prod-registry.mjs";
 import {
@@ -57,7 +59,8 @@ if (!args.includes("--i-am-running-against-production")) {
     "refusing: pass --i-am-running-against-production to acknowledge a live run",
   );
 }
-if (process.env.CI) fail("refusing: production E2E is manual, never CI");
+const refusal = ciRefusal(process.env);
+if (refusal) fail(refusal);
 
 const apps = flag("--app") ? [flag("--app")] : E2E_APPS;
 if (apps.some((a) => !E2E_APPS.includes(a))) {

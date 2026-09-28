@@ -11,6 +11,9 @@
 #
 # See docs/superpowers/specs/2026-09-05-production-re-release-design.md §7.
 name: Deploy Production
+# The title marks a test-id build so e2e-production.yml can tell the deploy it
+# dispatched mid-window from a real one (it filters on display_title).
+run-name: ${{ inputs.test_ids == true && 'Deploy test-id image' || 'Deploy Production' }} (${{ github.ref_name }})
 
 on:
   push:

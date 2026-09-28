@@ -1,7 +1,30 @@
 # Production E2E — runbook
 
-Manual only. Never from CI. Design:
-`docs/superpowers/specs/2026-09-27-production-e2e-design.md`.
+Design: `docs/superpowers/specs/2026-09-27-production-e2e-design.md`.
+
+Run by hand from an operator's machine, or by CI: since 2026-09-28
+`.github/workflows/e2e-production.yml` runs the same runner after every
+successful production deploy and on `workflow_dispatch`. That is a temporary
+arrangement (spec §13) while the operator's machine cannot carry a Playwright
+session; switch it off by setting the repository variable
+`PRODUCTION_E2E_IN_CI` to anything but `true`. The runner refuses any other
+CI context: only that workflow sets `E2E_PROD_CI_ALLOWED=true`.
+
+## In CI
+
+Trigger: `workflow_run` on "Deploy Production" (success only; the test-id
+deploy the runner dispatches mid-window is skipped by its title) and
+`workflow_dispatch`. The job injects the same secrets `.env.prod` references,
+writes the deploy key to the runner's default path, runs
+`pnpm e2e:prod --i-am-running-against-production`, then **always** runs
+`pnpm e2e:prod:audit` so a run the job timeout killed shows as a red job and
+not a green one. Traces and screenshots are uploaded as an artifact; a
+failure posts to the Telegram critical thread. It never rolls production back.
+
+A real deploy that starts during a window makes the suite fail and puts a
+clean image on the box; the runner's restore then sees no test-id image and
+does nothing (the guard in `restorePreviousImage`), so production is left
+serving the deploy, not the window's image.
 
 ## Run
 
