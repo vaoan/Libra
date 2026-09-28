@@ -25,8 +25,9 @@ vi.mock("api/supabase", () => ({
   createBrowserSupabaseClient: () => ({}),
 }));
 
+let mockUser: { id: string } | undefined = { id: "seller-1" };
 vi.mock("@/shared/application/hooks/useCurrentUser", () => ({
-  useCurrentUser: () => ({ user: { id: "seller-1" } }),
+  useCurrentUser: () => ({ user: mockUser }),
 }));
 
 vi.mock("@/features/seller-admins/infrastructure/delegateQueries", () => ({
@@ -40,6 +41,7 @@ import { searchUsers } from "@/features/seller-admins/infrastructure/delegateQue
 describe("AddDelegateForm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUser = { id: "seller-1" };
   });
 
   it("renders search input with correct test ID", () => {
@@ -251,5 +253,39 @@ describe("AddDelegateForm", () => {
     expect(checkbox.checked).toBe(true);
     fireEvent.click(checkbox);
     expect(checkbox.checked).toBe(false);
+  });
+
+  // The search used to run only inside onChange and bail out while the
+  // current user was still resolving, so an email typed before the profile
+  // lookup finished was silently dropped: no results, no hint, and nothing
+  // re-ran when the user arrived (production E2E run e2e-20260928-0758-60c6,
+  // where the lookup took 622 ms and the test typed 400 ms before it landed).
+  it("runs the search once the current user resolves after typing", async () => {
+    vi.mocked(searchUsers).mockResolvedValue([
+      {
+        id: "u-9",
+        email: "delegate@example.com",
+        display_name: null,
+        avatar_url: null,
+      },
+    ]);
+    mockUser = undefined;
+    const view = render(<AddDelegateForm onAdd={vi.fn()} />);
+    fireEvent.change(screen.getByTestId("delegate-search-input"), {
+      target: { value: "delegate@example.com" },
+    });
+    expect(searchUsers).not.toHaveBeenCalled();
+
+    mockUser = { id: "seller-1" };
+    view.rerender(<AddDelegateForm onAdd={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(searchUsers).toHaveBeenCalledWith(
+        expect.anything(),
+        "delegate@example.com",
+        "seller-1",
+      ),
+    );
+    expect(await screen.findByText("delegate@example.com")).toBeInTheDocument();
   });
 });
