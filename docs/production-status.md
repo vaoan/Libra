@@ -143,6 +143,29 @@ a hand restore leaves seeded and restored rows coexisting with no error).
 `identity_sub` values; the restore is finished and must not be repeated
 after the first login.
 
+## Production E2E: fully green (2026-09-28)
+
+Run `e2e-20260928-0826-7689` (GitHub run 36397289621) passed every test with
+**zero retries**: auth 46, store 14, admin 23, payments 29, landing 5. Prune
+left zero rows, the pre-window image came back, the audit was clean. The
+runs before it each found a real defect, all fixed the same day:
+
+| Run                   | Finding                                                     | Fix      |
+| --------------------- | ----------------------------------------------------------- | -------- |
+| `…-0356-7305` (CI #1) | studio filters wrote the URL on mount and swallowed a click | PR #427  |
+|                       | E2E emails over 64 chars → Clerk 422                        | PR #427  |
+|                       | audit probed the site before the container was back         | PR #427  |
+| `…-0455-e5fb` (CI #2) | Add Method clickable before the seller id resolved          | PR #428  |
+|                       | Cloudflare Email Obfuscation broke landing hydration        | zone off |
+| `…-0535-a808` (CI #3) | reports route signed 143 receipt URLs in parallel           | PR #429  |
+| (deploy after #429)   | disk full of old images → 502                               | PR #430  |
+| `…-0726-c2f5` (CI #4) | user switch left a page mid-Clerk-init → cookieless init    | PR #431  |
+| `…-0758-60c6` (local) | delegate search dropped a query typed before user resolved  | PR #432  |
+
+Policy since #429: production runs never retry and keep a trace of every
+failed attempt (`retries: 0`, `trace: retain-on-failure` under
+`TARGET_ENV=prod`). A test that needs a second try is a failure.
+
 ## Deploy pipeline
 
 `.github/workflows/deploy-production.yml` runs on every push to `main` and on
