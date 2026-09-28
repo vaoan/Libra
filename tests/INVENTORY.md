@@ -6,12 +6,12 @@ Every test case in the repo, so a refactor can be checked for losses:
 regenerate and diff. Counting files or totals is not enough -- a rework
 can keep both and still drop the one assertion that mattered.
 
-**2776 cases across 385 files** (0 skipped, 10 parameterised).
+**2781 cases across 386 files** (0 skipped, 10 parameterised).
 
 Source-level cases: a `.each` case is one entry here and many in vitest
 output, so this total is deliberately not the runner total.
 
-## app:admin -- 562 cases
+## app:admin -- 567 cases
 
 ### `apps/admin/tests/ActivityRow.test.tsx`
 
@@ -287,6 +287,14 @@ output, so this total is deliberately not the runner total.
 - ProductName > renders the English name when locale is en
 - ProductName > renders the Spanish name when locale is es
 - ProductName > renders the English name for any non-es locale
+
+### `apps/admin/tests/receiptSignedUrls.test.ts`
+
+- signReceiptPaths > signs every path in one bulk request against the internal host
+- signReceiptPaths > maps an unsafe or missing path to null without asking storage for it
+- signReceiptPaths > returns null for a path storage reports an error on, and for all when the call fails
+- signReceiptPaths > makes no request when there is nothing to sign
+- signReceiptPaths > splits a large batch into chunks of at most 100 paths
 
 ### `apps/admin/tests/recentActivityQueries.test.ts`
 

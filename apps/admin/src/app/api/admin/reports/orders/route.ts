@@ -8,7 +8,7 @@ import {
   getAuthorizedAdmin,
   INTERNAL_SERVER_ERROR_STATUS,
 } from "@/app/api/admin/_shared/adminRest";
-import { signReceiptPath } from "@/app/api/admin/_shared/receiptSignedUrls";
+import { signReceiptPaths } from "@/app/api/admin/_shared/receiptSignedUrls";
 import {
   fetchOrderItems,
   fetchProfileMap,
@@ -82,6 +82,10 @@ export async function GET(request: Request) {
       itemsByOrder.set(item.order_id, existing);
     }
 
+    // One storage call for every receipt instead of one per order.
+    const receiptUrls = await signReceiptPaths(
+      orders.map((order) => order.receipt_url),
+    );
     const result = await Promise.all(
       orders.map(async (order) => {
         const buyer = profileMap.get(order.user_id);
@@ -96,7 +100,7 @@ export async function GET(request: Request) {
           total: order.total,
           currency: order.currency,
           transfer_number: order.transfer_number,
-          receipt_url: await signReceiptPath(order.receipt_url),
+          receipt_url: receiptUrls.get(order.receipt_url) ?? null,
           buyer_id: order.user_id,
           buyer_email: buyer?.email ?? "",
           buyer_display_name: buyer?.display_name ?? null,

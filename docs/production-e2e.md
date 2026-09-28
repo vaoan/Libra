@@ -21,6 +21,12 @@ writes the deploy key to the runner's default path, runs
 not a green one. Traces and screenshots are uploaded as an artifact; a
 failure posts to the Telegram critical thread. It never rolls production back.
 
+Production runs never retry (`retries: 0` when `TARGET_ENV=prod`) and keep a
+trace for every failed attempt (`trace: "retain-on-failure"`). A test that
+passes on its second try still failed a real user once, so a flake fails the
+run and its trace lands in the artifact; the CI dev suites keep their two
+retries.
+
 A real deploy that starts during a window makes the suite fail and puts a
 clean image on the box; the runner's restore then sees no test-id image and
 does nothing (the guard in `restorePreviousImage`), so production is left
