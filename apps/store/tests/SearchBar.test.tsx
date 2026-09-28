@@ -113,4 +113,32 @@ describe("SearchBar", () => {
       expect(input.value).toBe("external");
     });
   });
+
+  // A debounced history.replaceState that lands while a Link navigation is
+  // in flight becomes an ACTION_RESTORE in Next's router, which discards the
+  // pending navigation (production E2E run e2e-20260928-0204-1049: search,
+  // click a card within 300ms, page never leaves the catalog). Clicking
+  // anywhere blurs the input before the click event, so flushing on blur
+  // writes the URL before the navigation starts instead of during it.
+  it("flushes the pending debounced search to the URL when the input loses focus", () => {
+    render(<SearchBar />);
+    const input = screen.getByTestId("search-bar-input");
+
+    fireEvent.change(input, { target: { value: "alpha" } });
+    expect(mockSetQuery).not.toHaveBeenCalled();
+
+    fireEvent.blur(input);
+    expect(mockSetQuery).toHaveBeenCalledTimes(1);
+    expect(mockSetQuery).toHaveBeenCalledWith("alpha", { history: "replace" });
+
+    // The debounce timer must not fire a second, duplicate write.
+    vi.advanceTimersByTime(300);
+    expect(mockSetQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not write the URL on blur when nothing is pending", () => {
+    render(<SearchBar />);
+    fireEvent.blur(screen.getByTestId("search-bar-input"));
+    expect(mockSetQuery).not.toHaveBeenCalled();
+  });
 });
