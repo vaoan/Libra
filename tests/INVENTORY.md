@@ -6,7 +6,7 @@ Every test case in the repo, so a refactor can be checked for losses:
 regenerate and diff. Counting files or totals is not enough -- a rework
 can keep both and still drop the one assertion that mattered.
 
-**2785 cases across 387 files** (0 skipped, 10 parameterised).
+**2790 cases across 388 files** (0 skipped, 10 parameterised).
 
 Source-level cases: a `.each` case is one entry here and many in vitest
 output, so this total is deliberately not the runner total.
@@ -808,7 +808,7 @@ output, so this total is deliberately not the runner total.
 - useUsers > calls listUsers with correct parameters and returns data
 - useUsers > handles empty responses correctly
 
-## app:auth -- 114 cases
+## app:auth -- 119 cases
 
 ### `apps/auth/tests/AccountSettingsPage.test.tsx`
 
@@ -904,6 +904,14 @@ output, so this total is deliberately not the runner total.
 - fetchProfile > throws on error
 - updateProfile > returns updated profile
 - updateProfile > throws on error
+
+### `apps/auth/tests/receiptDownload.test.ts`
+
+- downloadReceipt > returns the bytes and content type on the first try
+- downloadReceipt > retries a 5xx with a pause and returns the eventual answer
+- downloadReceipt > does not retry a 4xx: that is our bug, not the provider's
+- downloadReceipt > gives up after the last attempt, naming the provider and hiding the token
+- downloadReceipt > sha256Hex matches node's digest
 
 ### `apps/auth/tests/route.test.ts`
 

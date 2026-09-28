@@ -1,6 +1,7 @@
 import { type Page, expect } from "@playwright/test";
 
 import { ELEMENT_TIMEOUT_MS, MUTATION_WAIT_MS } from "./constants";
+import { downloadReceipt } from "./receiptDownload";
 import { registerRow } from "./runRegistry";
 
 /**
@@ -105,8 +106,10 @@ export async function patchOrderReceiptUrl(
  *   1. The cell is visible and contains a link.
  *   2. The link's `href` is a fully-qualified Supabase signed URL pointing
  *      at the order's receipt object, carrying a `token=` query param.
- *   3. Fetching the URL returns 200 with `content-type: image/*` — the
- *      regression guard against the original bug (raw storage path in href).
+ *   3. Fetching the URL (from Node, through `downloadReceipt`, so a storage
+ *      5xx is retried a bounded number of times and named) returns 200 with
+ *      `content-type: image/*` — the regression guard against the original
+ *      bug (raw storage path in href).
  */
 export async function verifyReceiptLinkResolves(
   page: Page,
@@ -132,7 +135,7 @@ export async function verifyReceiptLinkResolves(
   );
   expect(href).toContain("token=");
 
-  const fetchedReceipt = await page.request.get(href as string);
-  expect(fetchedReceipt.ok()).toBe(true);
-  expect(fetchedReceipt.headers()["content-type"]).toContain("image");
+  // Bounded retries on a storage 5xx (see receiptDownload.ts); a 4xx fails.
+  const fetched = await downloadReceipt(href as string);
+  expect(fetched.contentType).toContain("image");
 }
