@@ -123,3 +123,16 @@ export function auditVerdict({
   if (testIds === null) reasons.push("could not read the public site");
   return { dirty: reasons.length > 0, reasons };
 }
+
+/**
+ * Does served HTML come from a test-id build? Only tid() output counts: the
+ * clean production build still carries one literal `data-testid="theme-toggle"`
+ * (a prop default in packages/ui), which fooled the first audit into
+ * reporting test ids live. Every app's navigation emits `app-navigation`
+ * through tid(), so that attribute is present exactly when the flag is on.
+ */
+export const TEST_ID_MARKER = 'data-testid="app-navigation"';
+
+export function hasTestIdMarker(html) {
+  return typeof html === "string" && html.includes(TEST_ID_MARKER);
+}

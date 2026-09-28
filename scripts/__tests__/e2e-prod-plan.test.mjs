@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   auditVerdict,
   buildPrunePlan,
+  hasTestIdMarker,
   runIdFromEmail,
 } from "../lib/e2e-prod-plan.mjs";
 
@@ -142,5 +143,14 @@ describe("auditVerdict", () => {
     expect(auditVerdict({ ...clean, testIds: null }).reasons).toEqual([
       "could not read the public site",
     ]);
+  });
+});
+
+describe("hasTestIdMarker", () => {
+  it("ignores the theme-toggle literal the clean build always carries", () => {
+    expect(hasTestIdMarker('<button data-testid="theme-toggle">')).toBe(false);
+  });
+  it("recognises the tid()-emitted navigation marker", () => {
+    expect(hasTestIdMarker('<nav data-testid="app-navigation">')).toBe(true);
   });
 });

@@ -5,6 +5,8 @@
  * Spec: docs/superpowers/specs/2026-09-27-production-e2e-design.md §8.
  */
 import { spawn } from "node:child_process";
+
+import { TEST_ID_MARKER, hasTestIdMarker } from "./e2e-prod-plan.mjs";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
@@ -51,7 +53,7 @@ export async function waitForTestIds({
     const html = await fetchImpl(url, { cache: "no-store" })
       .then((r) => (r.ok ? r.text() : ""))
       .catch(() => "");
-    if (/data-testid=/.test(html) === present) return;
+    if (hasTestIdMarker(html) === present) return;
     if (clock() - start >= timeoutMs) {
       throw new Error(
         `${url} did not ${present ? "start" : "stop"} serving test ids within ${timeoutMs}ms`,
@@ -191,7 +193,7 @@ export async function restorePreviousImage({
   const start = clock();
   for (;;) {
     const count = await runSsh(
-      `curl -sL http://127.0.0.1:${BOX_PORT}/ | grep -c data-testid= || true`,
+      `curl -sL http://127.0.0.1:${BOX_PORT}/ | grep -c '${TEST_ID_MARKER}' || true`,
     );
     if (count.trim() === "0") return;
     if (clock() - start >= timeoutMs) {
