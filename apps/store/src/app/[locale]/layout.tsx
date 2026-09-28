@@ -13,7 +13,7 @@ import {
 import { Providers } from "@/app/[locale]/providers";
 import { ProtectedRoute } from "@/features/auth";
 import { CartDrawer } from "@/features/cart";
-import { appUrls } from "@/shared/infrastructure/config";
+import { appHref, appUrls } from "@/shared/infrastructure/config";
 import { routing } from "@/shared/infrastructure/i18n";
 import { ThemeProvider } from "@/shared/infrastructure/providers";
 import { AppTopNavigation } from "@/shared/presentation/components/AppTopNavigation";
@@ -48,8 +48,8 @@ export default async function LocaleLayout({
 
   const messages = await getMessages();
   const tFooter = await getTranslations({ locale, namespace: "footer" });
-  const termsHref = `${appUrls.landing}/${locale}/legal/terms`;
-  const privacyHref = `${appUrls.landing}/${locale}/legal/privacy`;
+  const termsHref = appHref(appUrls.landing, `/${locale}/legal/terms`);
+  const privacyHref = appHref(appUrls.landing, `/${locale}/legal/privacy`);
 
   const [userEmail, initialGrantedKeys] = await Promise.all([
     getServerUserEmail(),
