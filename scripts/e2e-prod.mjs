@@ -19,6 +19,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { pruneRun } from "./e2e-prod-prune.mjs";
+import { quoteForCmd } from "./lib/cmd-quote.mjs";
 import { createRegistry } from "./lib/e2e-prod-registry.mjs";
 import {
   boxSshTarget,
@@ -242,12 +243,16 @@ function playwright(app) {
   console.log(`▶ playwright  app=${app}\n`);
   return new Promise((resolvePromise) => {
     const child = isWindows
-      ? spawn("cmd.exe", ["/d", "/s", "/c", "pnpm", ...pwArgs], {
-          cwd: rootDir,
-          stdio: "inherit",
-          windowsHide: true,
-          env,
-        })
+      ? spawn(
+          "cmd.exe",
+          ["/d", "/s", "/c", "pnpm", ...pwArgs.map(quoteForCmd)],
+          {
+            cwd: rootDir,
+            stdio: "inherit",
+            windowsHide: true,
+            env,
+          },
+        )
       : spawn("pnpm", pwArgs, { cwd: rootDir, stdio: "inherit", env });
     child.on("exit", (code) => resolvePromise(code ?? 1));
   });
