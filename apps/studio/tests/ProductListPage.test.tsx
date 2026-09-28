@@ -3,7 +3,13 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
+  useLocale: () => "es",
 }));
+
+vi.mock("@/shared/infrastructure/config", async () => {
+  const { mockStudioConfig } = await import("@/test/fixtures/appUrls");
+  return mockStudioConfig;
+});
 
 vi.mock("shared", () => ({
   tid: (id: string) => ({ "data-testid": id }),
@@ -82,9 +88,10 @@ vi.mock(
   }),
 );
 
+let mockPendingCount = 0;
 vi.mock("@/features/orders/application/hooks/usePendingOrderCount", () => ({
   usePendingOrderCount: () => ({
-    data: 0,
+    data: mockPendingCount,
   }),
 }));
 
@@ -101,6 +108,7 @@ import { ProductListPage } from "@/shared/presentation/pages/ProductListPage";
 describe("ProductListPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPendingCount = 0;
     mockHasPermission.mockImplementation((permission: string) =>
       [
         "products.read",
@@ -137,5 +145,16 @@ describe("ProductListPage", () => {
     const anchor = screen.getByRole("link", { name: /products\.newProduct/ });
     expect(anchor).toHaveAttribute("data-i18n-link", "true");
     expect(anchor).toHaveAttribute("href", "/products/new");
+  });
+
+  // Studio has no orders route: the seller's received orders live in the
+  // payments app, at /sales. A studio-relative "/orders" was a 404 in
+  // production (store.furrycolombia.com/studio/es/orders).
+  it("sends the pending-orders badge to the payments sales page in the current locale", () => {
+    mockPendingCount = 3;
+    render(<ProductListPage />);
+    const badge = screen.getByTestId("pending-orders-badge");
+    expect(badge).toHaveAttribute("href", "http://localhost:5005/es/sales");
+    expect(badge).not.toHaveAttribute("data-i18n-link");
   });
 });

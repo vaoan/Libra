@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useQueryStates } from "nuqs";
 import { tid } from "shared";
 import { Button } from "ui";
@@ -10,6 +10,7 @@ import { useProducts } from "@/features/products/application/hooks/useProducts";
 import { productsSearchParams } from "@/features/products/domain/searchParams";
 import { ProductFilters } from "@/features/products/presentation/components/ProductFilters";
 import { ProductTable } from "@/features/products/presentation/components/ProductTable";
+import { appUrls } from "@/shared/infrastructure/config";
 import { Link } from "@/shared/infrastructure/i18n";
 
 interface ProductListPageContentProps {
@@ -30,6 +31,7 @@ export function ProductListPageContent({
   delegateCounts,
 }: ProductListPageContentProps) {
   const t = useTranslations();
+  const locale = useLocale();
   const [filters] = useQueryStates(productsSearchParams);
   const { data: products, isLoading } = useProducts(filters);
   const isFiltered = !!(filters.type || filters.category || filters.q);
@@ -54,8 +56,10 @@ export function ProductListPageContent({
           </div>
           <div className="flex items-center gap-3">
             {!!pendingCount && pendingCount > 0 && (
-              <Link
-                href="/orders"
+              // Received orders live in the payments app (/sales); studio has
+              // no orders route. Cross-app, so a plain anchor, not the i18n Link.
+              <a
+                href={`${appUrls.payments}/${locale}/sales`}
                 className="flex items-center gap-2 rounded-sm border-2 border-warning bg-warning/10 px-3 py-1.5 font-display text-xs font-bold uppercase tracking-wider text-warning transition-colors hover:bg-warning/20"
                 {...tid("pending-orders-badge")}
               >
@@ -63,7 +67,7 @@ export function ProductListPageContent({
                   {pendingCount}
                 </span>
                 {t("orders.pendingOrders", { count: pendingCount })}
-              </Link>
+              </a>
             )}
             {canCreate && (
               <Link href="/products/new">
