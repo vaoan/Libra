@@ -24,3 +24,21 @@ describe("readSecret", () => {
     expect(readSecret("RACKNERD_VPS_IP")).toBeUndefined();
   });
 });
+
+describe("fillFromSecrets", () => {
+  it("fills only unset names that have a secret, and never writes the string 'undefined'", async () => {
+    const { fillFromSecrets } = await import("../load-env.mjs");
+    const env = { RACKNERD_VPS_USER: "already" };
+    const read = (name) => ({ RACKNERD_VPS_IP: "203.0.113.9" })[name];
+    fillFromSecrets(
+      env,
+      ["RACKNERD_VPS_IP", "RACKNERD_VPS_USER", "RACKNERD_VPS_SSH_KEY_PATH"],
+      read,
+    );
+    expect(env).toEqual({
+      RACKNERD_VPS_IP: "203.0.113.9",
+      RACKNERD_VPS_USER: "already",
+    });
+    expect("RACKNERD_VPS_SSH_KEY_PATH" in env).toBe(false);
+  });
+});

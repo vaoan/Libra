@@ -142,6 +142,21 @@ export function readSecret(name) {
   return value === undefined || value === "" ? undefined : value;
 }
 
+/**
+ * Fill `env[name]` from the secrets file for every name that is unset and
+ * has a value. Assigning `undefined` to `process.env` stores the string
+ * "undefined", which then looks like a set path or host — so absent secrets
+ * are skipped, never assigned.
+ */
+export function fillFromSecrets(env, names, read = readSecret) {
+  for (const name of names) {
+    if (env[name] !== undefined && env[name] !== "") continue;
+    const value = read(name);
+    if (value !== undefined) env[name] = value;
+  }
+  return env;
+}
+
 export function loadEnv(targetEnv) {
   const env = targetEnv || process.env.TARGET_ENV || "dev";
   if (!ALLOWED_ENVS.includes(env)) {
