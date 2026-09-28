@@ -26,11 +26,15 @@ describe("runRegistry", () => {
   });
 
   it("is a no-op without E2E_RUN_ID", async () => {
-    const { registerRow, currentRunId, runScopedToken } = await load();
+    const { registerRow, currentRunId, runScopedToken, runScopedEmail } =
+      await load();
     expect(currentRunId()).toBeUndefined();
     await registerRow("products", "p1");
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(runScopedToken()).toMatch(/^\d{13}$/);
+    expect(runScopedEmail("buyer")).toMatch(
+      /^e2e-buyer-\d{13}\+clerk_test@example\.com$/,
+    );
   });
 
   it("posts one e2e_run_rows row per registration with the run id", async () => {
@@ -38,9 +42,9 @@ describe("runRegistry", () => {
     fetchSpy.mockResolvedValue({ ok: true, status: 201, text: async () => "" });
     const { registerRow, runScopedToken } = await load();
     await registerRow("products", "p1");
-    // Unique per call inside a run, and still ending in the run id so the
-    // email pattern (`-<run_id>+clerk_test@`) keeps matching.
-    expect(runScopedToken()).toMatch(new RegExp(`^\\d{13}-${RUN}$`));
+    // Unique per call inside a run (base36 ms, 8 chars), and still ending in
+    // the run id so the email pattern (`-<run_id>+clerk_test@`) keeps matching.
+    expect(runScopedToken()).toMatch(new RegExp(`^[0-9a-z]{8}-${RUN}$`));
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0] as [
       string,
@@ -133,5 +137,29 @@ describe("runRegistry", () => {
     const { ensureRunRegistered } = await load();
     await expect(ensureRunRegistered()).resolves.toBeUndefined();
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  // Clerk rejects an address whose local part exceeds 64 characters with a
+  // bare 422. With `<Date.now()>-<run_id>` in the token, any label of 13+
+  // characters did exactly that in production (permission-management and
+  // receipt-delegate-flow, CI run e2e-20260928-0356-7305).
+  it("runScopedEmail keeps the local part within 64 characters inside a run, run id last", async () => {
+    process.env.E2E_RUN_ID = RUN;
+    const { runScopedEmail } = await load();
+    const email = runScopedEmail("delegated-reports-delegate");
+    const [local = "", domain] = email.split("@");
+    expect(domain).toBe("example.com");
+    expect(local.length).toBeLessThanOrEqual(64);
+    expect(local).toMatch(
+      new RegExp(`^e2e-delegated-reports-[0-9a-z]{8}-${RUN}[+]clerk_test$`),
+    );
+  });
+
+  it("runScopedEmail without a label still carries the run id", async () => {
+    process.env.E2E_RUN_ID = RUN;
+    const { runScopedEmail } = await load();
+    expect(runScopedEmail()).toMatch(
+      new RegExp(`^e2e-[0-9a-z]{8}-${RUN}[+]clerk_test@example[.]com$`),
+    );
   });
 });

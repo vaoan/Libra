@@ -4,6 +4,7 @@ import {
   auditVerdict,
   buildPrunePlan,
   hasTestIdMarker,
+  probeTestIds,
   runIdFromEmail,
 } from "../lib/e2e-prod-plan.mjs";
 
@@ -152,5 +153,67 @@ describe("hasTestIdMarker", () => {
   });
   it("recognises the tid()-emitted navigation marker", () => {
     expect(hasTestIdMarker('<nav data-testid="app-navigation">')).toBe(true);
+  });
+});
+
+describe("probeTestIds", () => {
+  const ok = (body) => ({ ok: true, text: async () => body });
+  const down = { ok: false, text: async () => "" };
+  const noSleep = async () => {};
+
+  it("reads a clean site on the first try", async () => {
+    const fetchImpl = async () => ok("<nav>clean</nav>");
+    await expect(
+      probeTestIds({ url: "https://x/", fetchImpl, sleep: noSleep }),
+    ).resolves.toBe(false);
+  });
+
+  it("reports a test-id build", async () => {
+    const fetchImpl = async () => ok('<nav data-testid="app-navigation">');
+    await expect(
+      probeTestIds({ url: "https://x/", fetchImpl, sleep: noSleep }),
+    ).resolves.toBe(true);
+  });
+
+  // The audit runs right after the restore swaps the container; the first
+  // seconds answer 502 (CI run e2e-20260928-0356-7305 read that as DIRTY).
+  it("retries while the site is down and returns the eventual answer", async () => {
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      if (calls < 3) throw new Error("connect ECONNREFUSED");
+      if (calls === 3) return down;
+      return ok("<nav>clean</nav>");
+    };
+    const slept = [];
+    const result = await probeTestIds({
+      url: "https://x/",
+      fetchImpl,
+      attempts: 6,
+      delayMs: 5000,
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+    expect(result).toBe(false);
+    expect(calls).toBe(4);
+    expect(slept).toEqual([5000, 5000, 5000]);
+  });
+
+  it("gives up as null after the last attempt", async () => {
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      return down;
+    };
+    await expect(
+      probeTestIds({
+        url: "https://x/",
+        fetchImpl,
+        attempts: 3,
+        sleep: noSleep,
+      }),
+    ).resolves.toBeNull();
+    expect(calls).toBe(3);
   });
 });

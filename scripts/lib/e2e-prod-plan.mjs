@@ -136,3 +136,29 @@ export const TEST_ID_MARKER = 'data-testid="app-navigation"';
 export function hasTestIdMarker(html) {
   return typeof html === "string" && html.includes(TEST_ID_MARKER);
 }
+
+/**
+ * Reads the public site and says whether it serves a test-id build: true,
+ * false, or null when it never answered. Retries: the audit runs right after
+ * the restore swaps the container, and the first seconds answer with an
+ * error page (the first CI run read that as "DIRTY: could not read the
+ * public site"). The runner's own restore only watches the box loopback.
+ */
+export async function probeTestIds({
+  url,
+  fetchImpl = fetch,
+  attempts = 9,
+  delayMs = 10_000,
+  sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+}) {
+  for (let i = 0; i < attempts; i += 1) {
+    if (i > 0) await sleep(delayMs);
+    try {
+      const res = await fetchImpl(url, { cache: "no-store" });
+      if (res.ok) return hasTestIdMarker(await res.text());
+    } catch {
+      // unreachable: try again
+    }
+  }
+  return null;
+}

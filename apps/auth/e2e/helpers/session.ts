@@ -10,7 +10,7 @@ import { assertNotProductionClerk, productionGuardContext } from "./guardEnv";
 import {
   ensureRunRegistered,
   registerRow,
-  runScopedToken,
+  runScopedEmail,
 } from "./runRegistry";
 import { attachProfileId, registerClerkUser } from "./userRegistry";
 
@@ -353,8 +353,10 @@ export async function deleteClerkUserBySub(clerkUserId: string): Promise<void> {
  * Backend-API sessions (clerkSession.ts). Development keys keep the SDK path.
  *
  * Refuses to start (via `ensureRunRegistered`) when `E2E_RUN_ID` names a run
- * `e2e_runs` does not know; inside a run the email token is
- * `<Date.now()>-<run_id>` so same-label users never collide.
+ * `e2e_runs` does not know. The address comes from `runScopedEmail(label)`:
+ * inside a run its token is `<Date.now() in base36>-<run_id>` so same-label
+ * users never collide, and the label is cut so the local part stays within
+ * the 64 characters Clerk accepts (long labels drew a bare 422 in production).
  */
 export async function createTestUser(
   label: string,
@@ -363,7 +365,7 @@ export async function createTestUser(
   await ensureRunRegistered();
   // A Clerk dev-instance test email (`+clerk_test` subaddress): no real
   // inbox, no verification email actually sent, unique per run.
-  const email = `e2e-${label}-${runScopedToken()}+clerk_test@example.com`;
+  const email = runScopedEmail(label);
 
   const clerkUser = await clerkClient.users.createUser({
     emailAddress: [email],
