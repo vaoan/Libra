@@ -161,7 +161,14 @@ export function runSshCli(command, target = boxSshTarget()) {
  * image is still on the box, so the exact image that served before the
  * test-id deploy comes back with a compose up — no build, no branch, no
  * dependency on the tunnel. Verified on the box's loopback: the landing page
- * (following its locale redirect) must carry no data-testid.
+ * (following its locale redirect) must no longer carry tid()'s
+ * `data-testid="app-navigation"` marker — the clean build keeps one literal
+ * `theme-toggle` test id, so "no data-testid at all" was never true.
+ *
+ * Guarded on the box: acts only when the serving image is a test-id build and
+ * `env.prod.previous` is clean. A later normal deploy makes the previous env
+ * the test-id one, and restoring it would bring test ids back, so "clean
+ * already" is a no-op and a test-id previous refuses.
  */
 export async function restorePreviousImage({
   runSsh = runSshCli,
