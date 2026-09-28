@@ -177,22 +177,23 @@ try {
   await waitForTestIds({ url: `${landing}/`, present: true });
   console.log("✓ production serves test ids\n");
 
-  let suiteFailed = false;
+  // Every app runs even after one fails: a window costs a deploy and a
+  // restore, so one window should report everything it can (the first CI
+  // run stopped at auth and never told us about the four other apps).
+  const failedApps = [];
   for (const app of apps) {
     const code = await playwright(app);
-    if (code !== 0) {
-      suiteFailed = true;
-      break;
-    }
+    if (code !== 0) failedApps.push(app);
   }
-  status = suiteFailed ? "failed" : "passed";
+  status = failedApps.length > 0 ? "failed" : "passed";
+  if (failedApps.length > 0) notes = `suite failed: ${failedApps.join(", ")}`;
   // A registration that failed inside Playwright is a row prune cannot see.
   const unregistered = readFileSync(failuresFile, "utf8")
     .split("\n")
     .filter(Boolean);
   if (unregistered.length > 0) {
     status = "failed";
-    notes = `${unregistered.length} row registration(s) failed: ${unregistered.slice(0, 5).join(" | ")}`;
+    notes = `${notes ? `${notes}; ` : ""}${unregistered.length} row registration(s) failed: ${unregistered.slice(0, 5).join(" | ")}`;
   }
 } catch (error) {
   notes = error instanceof Error ? error.message : String(error);

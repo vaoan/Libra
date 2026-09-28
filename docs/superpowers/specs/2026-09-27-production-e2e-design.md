@@ -33,7 +33,9 @@ would leave untagged rows behind if anything broke.
 `e2e-20260927-1930-a3f1`. The runner mints it and exports it to Playwright
 as `E2E_RUN_ID`.
 
-- E2E emails: `e2e-<label>-<Date.now()>-<run_id>+clerk_test@example.com`
+- E2E emails: `e2e-<label>-<Date.now() in base36>-<run_id>+clerk_test@example.com`,
+  the label cut so the local part stays within 64 characters (Clerk rejects
+  longer ones with a bare 422; `runScopedEmail` in runRegistry.ts)
   (the timestamp keeps two specs with the same label apart; the run id stays
   last so the sweep and prune patterns match on it).
 - E2E-created names (products, reports): prefix `e2e-<run_id>-`.

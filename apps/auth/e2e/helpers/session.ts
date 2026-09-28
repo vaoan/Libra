@@ -10,7 +10,7 @@ import { assertNotProductionClerk, productionGuardContext } from "./guardEnv";
 import {
   ensureRunRegistered,
   registerRow,
-  runScopedToken,
+  runScopedEmail,
 } from "./runRegistry";
 import { attachProfileId, registerClerkUser } from "./userRegistry";
 
@@ -363,7 +363,7 @@ export async function createTestUser(
   await ensureRunRegistered();
   // A Clerk dev-instance test email (`+clerk_test` subaddress): no real
   // inbox, no verification email actually sent, unique per run.
-  const email = `e2e-${label}-${runScopedToken()}+clerk_test@example.com`;
+  const email = runScopedEmail(label);
 
   const clerkUser = await clerkClient.users.createUser({
     emailAddress: [email],

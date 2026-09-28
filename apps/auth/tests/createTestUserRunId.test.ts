@@ -57,7 +57,7 @@ describe("createTestUser inside a production run", () => {
     const user = await createTestUser("buyer");
 
     expect(user.email).toMatch(
-      new RegExp(`^e2e-buyer-\\d{13}-${RUN}\\+clerk_test@example\\.com$`),
+      new RegExp(`^e2e-buyer-[0-9a-z]{8}-${RUN}\\+clerk_test@example\\.com$`),
     );
     expect(user.accessToken).toBe("dev.jwt");
     expect(registered).toEqual([

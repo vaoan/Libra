@@ -23,12 +23,38 @@ export function currentRunId(): string | undefined {
 /**
  * The token that makes an E2E email or name unique: `Date.now()` outside a
  * run (the historical behaviour); inside a production run
- * `<Date.now()>-<run_id>`, so two specs using the same label never collide
- * and the value still ends in the run id that prune and the sweep match on.
+ * `<Date.now() in base36>-<run_id>` (8 + 1 + 22 characters), so two specs
+ * using the same label never collide and the value still ends in the run id
+ * that prune and the sweep match on. Base36 because the run form has to fit
+ * an email local part alongside the label -- see `runScopedEmail`.
  */
 export function runScopedToken(): string {
   const runId = currentRunId();
-  return runId ? `${Date.now()}-${runId}` : String(Date.now());
+  return runId ? `${Date.now().toString(36)}-${runId}` : String(Date.now());
+}
+
+/** RFC 5321: the part before `@` is at most 64 characters. Clerk enforces it. */
+const EMAIL_LOCAL_PART_MAX = 64;
+const EMAIL_PREFIX = "e2e-";
+const EMAIL_SUFFIX = "+clerk_test@example.com";
+
+/**
+ * A Clerk test address for one E2E user: `e2e-<label>-<token>+clerk_test@example.com`
+ * (`e2e-<token>+...` without a label). Inside a production run the token is
+ * 31 characters, so the label is cut to whatever keeps the local part within
+ * 64; the token, not the label, is what makes the address unique. Long
+ * labels made Clerk answer a bare 422 (permission-management,
+ * receipt-delegate-flow, CI run e2e-20260928-0356-7305).
+ */
+export function runScopedEmail(label = ""): string {
+  const token = runScopedToken();
+  const fixed =
+    EMAIL_PREFIX.length +
+    token.length +
+    (EMAIL_SUFFIX.length - "@example.com".length);
+  const room = EMAIL_LOCAL_PART_MAX - fixed - (label ? 1 : 0);
+  const cut = label.slice(0, Math.max(room, 0)).replace(/-+$/, "");
+  return `${EMAIL_PREFIX}${cut ? `${cut}-` : ""}${token}${EMAIL_SUFFIX}`;
 }
 
 /**

@@ -30,13 +30,18 @@ export function ProductFilters() {
 
   const [searchInput, setSearchInput] = useState(q);
 
-  // Debounce search input to URL
+  // Debounce search input to URL. Never write what the URL already says: on
+  // mount this effect fires with the URL's own value, and a needless
+  // history.replaceState becomes an ACTION_RESTORE in Next's router, which
+  // discards any navigation still in flight -- the "New product" click a few
+  // hundred ms after the list rendered silently stayed on the list.
   useEffect(() => {
+    if ((searchInput || null) === (q || null)) return;
     const timer = setTimeout(() => {
       setParams({ q: searchInput || null }, { history: "replace" });
     }, PRODUCT_SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [searchInput, setParams]);
+  }, [searchInput, q, setParams]);
 
   // Sync external URL changes back to local state (equality guard breaks debounce→URL→sync cycle)
   useEffect(() => {

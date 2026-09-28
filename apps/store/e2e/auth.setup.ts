@@ -11,7 +11,7 @@ import {
 import {
   ensureRunRegistered,
   registerRow,
-  runScopedToken,
+  runScopedEmail,
 } from "../../auth/e2e/helpers/runRegistry";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -53,7 +53,7 @@ setup("authenticate", async ({ page }) => {
   // A Clerk dev-instance test email (`+clerk_test` subaddress): no real inbox,
   // no verification email actually sent, unique per run.
   await ensureRunRegistered();
-  const email = `e2e-${runScopedToken()}+clerk_test@example.com`;
+  const email = runScopedEmail();
 
   const { createClerkClient } = await import("@clerk/backend");
   const clerkClient = createClerkClient({ secretKey: CLERK_SECRET_KEY });

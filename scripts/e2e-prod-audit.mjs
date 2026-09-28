@@ -10,7 +10,7 @@
  */
 import {
   auditVerdict,
-  hasTestIdMarker,
+  probeTestIds,
   runIdFromEmail,
 } from "./lib/e2e-prod-plan.mjs";
 import { createRegistry } from "./lib/e2e-prod-registry.mjs";
@@ -37,9 +37,8 @@ for (const r of runs) {
 const landing = process.env.NEXT_PUBLIC_LANDING_URL;
 // null when the site could not be read: the audit must not read a dead or
 // unreachable site as "clean".
-const testIdsLive = await fetch(`${landing}/`, { cache: "no-store" })
-  .then(async (r) => (r.ok ? hasTestIdMarker(await r.text()) : null))
-  .catch(() => null);
+// Retries for ~90s: right after a restore the container is still coming up.
+const testIdsLive = await probeTestIds({ url: `${landing}/` });
 console.log(
   `\nserved image carries test ids: ${
     testIdsLive === null
