@@ -6,7 +6,7 @@ Every test case in the repo, so a refactor can be checked for losses:
 regenerate and diff. Counting files or totals is not enough -- a rework
 can keep both and still drop the one assertion that mattered.
 
-**2750 cases across 381 files** (0 skipped, 9 parameterised).
+**2770 cases across 385 files** (0 skipped, 10 parameterised).
 
 Source-level cases: a `.each` case is one entry here and many in vitest
 output, so this total is deliberately not the runner total.
@@ -800,7 +800,7 @@ output, so this total is deliberately not the runner total.
 - useUsers > calls listUsers with correct parameters and returns data
 - useUsers > handles empty responses correctly
 
-## app:auth -- 92 cases
+## app:auth -- 109 cases
 
 ### `apps/auth/tests/AccountSettingsPage.test.tsx`
 
@@ -824,6 +824,13 @@ output, so this total is deliberately not the runner total.
 - assertNotProductionClerk > allows a test secret key
 - createTestUser's real template carries +clerk_test
 
+### `apps/auth/tests/clerkSession.test.ts`
+
+- mintProductionSessionToken > refuses a development key before any request
+- mintProductionSessionToken > uses a sign-in token redeemed through the Frontend API on a live key
+- mintProductionSessionToken > refuses a live key without a domain before any request
+- mintProductionSessionToken > throws, never exits, when the sign-in does not create a session
+
 ### `apps/auth/tests/constants.test.ts`
 
 - account domain constants > defines PROFILE_QUERY_KEY
@@ -831,6 +838,17 @@ output, so this total is deliberately not the runner total.
 ### `apps/auth/tests/createTestUserOrdering.test.ts`
 
 - createTestUser registration ordering > registers the Clerk user before the profile RPC can throw
+
+### `apps/auth/tests/createTestUserRunId.test.ts`
+
+- createTestUser inside a production run > stamps the run id into the email and registers both halves of the user
+
+### `apps/auth/tests/guardEnv.test.ts`
+
+- assertNotProductionClerk > lets a development key through with no context
+- assertNotProductionClerk > refuses a live key with no context, as before
+- assertNotProductionClerk > admits a live key when env, ack and host all agree
+- *(parameterised)* assertNotProductionClerk > refuses a live key when %s
 
 ### `apps/auth/tests/LoginPage.test.tsx`
 
@@ -892,6 +910,17 @@ output, so this total is deliberately not the runner total.
 - [locale]/callback GET > redirects to login when Clerk has no session for this request
 - [locale]/callback GET > renders a generic error instead of crashing when resolveProfile throws
 
+### `apps/auth/tests/runRegistry.test.ts`
+
+- runRegistry > is a no-op without E2E_RUN_ID
+- runRegistry > posts one e2e_run_rows row per registration with the run id
+- runRegistry > records a failure instead of throwing into the test
+- runRegistry > lets a test swap the registrar
+- runRegistry > appends each failure to E2E_RUN_FAILURES_FILE so the runner can read it
+- runRegistry > ensureRunRegistered throws when e2e_runs has no row for the run id
+- runRegistry > ensureRunRegistered passes once, then caches
+- runRegistry > ensureRunRegistered is a no-op without a run id
+
 ### `apps/auth/tests/SocialIcons.test.tsx`
 
 - Social Icons > DiscordIcon renders an SVG
@@ -899,13 +928,13 @@ output, so this total is deliberately not the runner total.
 
 ### `apps/auth/tests/SocialLoginButtons.test.tsx`
 
-- SocialLoginButtons > renders the available provider buttons
-- SocialLoginButtons > starts a Google sign-in through Clerk
-- SocialLoginButtons > starts a Discord sign-in through Clerk
-- SocialLoginButtons > points the OAuth flow at the sso-callback page and the final callback route, with no guessed `next` when returnTo is absent
-- SocialLoginButtons > passes an explicit returnTo through as `next` unchanged
-- SocialLoginButtons > logs and shows a visible error when authenticateWithRedirect rejects
-- SocialLoginButtons > does nothing when Clerk has not finished loading yet
+- renders the available provider buttons
+- starts a Google sign-in through Clerk
+- starts a Discord sign-in through Clerk
+- points the OAuth flow at the sso-callback page and the final callback route, with no guessed `next` when returnTo is absent
+- passes an explicit returnTo through as `next` unchanged
+- logs and shows a visible error when authenticateWithRedirect rejects
+- does nothing when Clerk has not finished loading yet
 
 ### `apps/auth/tests/types.test.ts`
 
@@ -2262,7 +2291,7 @@ output, so this total is deliberately not the runner total.
 - useStoreProducts > sets isError when fetchStoreProducts rejects
 - useStoreProduct > fetches a single product by id
 
-## app:studio -- 416 cases
+## app:studio -- 413 cases
 
 ### `apps/studio/tests/AddDelegateForm.test.tsx`
 
@@ -2554,14 +2583,6 @@ output, so this total is deliberately not the runner total.
 - fetchPendingOrderCount > returns 0 when count is null
 - fetchPendingOrderCount > queries the correct table and filters
 
-### `apps/studio/tests/PendingOrdersBadge.test.tsx`
-
-- PendingOrdersBadge > returns null when count is 0
-- PendingOrdersBadge > returns null when count is undefined
-- PendingOrdersBadge > renders badge with count
-- PendingOrdersBadge > renders link to received orders page
-- PendingOrdersBadge > renders the translated pending orders text
-
 ### `apps/studio/tests/PriceInput.test.tsx`
 
 - PriceInput > renders with the given value
@@ -2601,10 +2622,12 @@ output, so this total is deliberately not the runner total.
 
 ### `apps/studio/tests/ProductListPage.test.tsx`
 
-- ProductListPage > renders page with title
-- ProductListPage > renders product filters
-- ProductListPage > renders product table
-- ProductListPage > renders add product button
+- renders page with title
+- renders product filters
+- renders product table
+- renders add product button
+- links to the new-product page with the locale-aware Link
+- sends the pending-orders badge to the payments sales page in the current locale
 
 ### `apps/studio/tests/productMutations.test.ts`
 
@@ -2848,7 +2871,15 @@ output, so this total is deliberately not the runner total.
 - createProductFormSchema — section item validation > accepts a section item with only title_es set
 - createProductFormSchema — section item validation > accepts a section item with only title_en set
 
-## db -- 10 cases
+## db -- 15 cases
+
+### `tests/db/e2e-registry.test.ts`
+
+- e2e run registry > exists with the expected columns
+- e2e run registry > denies anon and authenticated on both tables
+- e2e run registry > refuses a row without a run
+- e2e run registry > refuses deleting a run that still owns rows
+- e2e run registry > rejects an unknown status
 
 ### `tests/db/exposure-invariants.test.ts`
 
@@ -3371,7 +3402,7 @@ output, so this total is deliberately not the runner total.
 - isTokenActive with standard JWT format > prefers internal token format over JWT when decodable
 - encodeAuthToken / decodeAuthToken roundtrip > roundtrips a valid payload
 
-## package:shared -- 197 cases
+## package:shared -- 198 cases
 
 ### `packages/shared/tests/api.test.ts`
 
@@ -3407,6 +3438,7 @@ output, so this total is deliberately not the runner total.
 - appUrls > lets explicit NEXT_PUBLIC app URLs override the defaults
 - appUrls > uses NEXT_PUBLIC_*_URL values in production when set
 - appUrls > legacy SITE_PUBLIC_ORIGIN, E2E_PUBLIC_ORIGIN, and APP_PUBLIC_ORIGIN have no effect on output
+- appHref > joins an app URL and a path without a double slash, even for the landing root
 
 ### `packages/shared/tests/BuildVersion.test.tsx`
 
