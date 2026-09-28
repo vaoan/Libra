@@ -5,6 +5,7 @@ import { clerk, clerkSetup } from "@clerk/testing/playwright";
 import type { BrowserContext } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
+import { waitForClerkToSettle } from "./clerkSettle";
 import { mintProductionSessionToken } from "./clerkSession";
 import { assertNotProductionClerk, productionGuardContext } from "./guardEnv";
 import {
@@ -458,6 +459,9 @@ export async function injectSession(
 ): Promise<void> {
   await ensureClerkSetup();
   const page = context.pages()[0] ?? (await context.newPage());
+  // Never leave the current page mid-Clerk-init: its cookieless FAPI calls
+  // would reset the client and the guard's redirect would abort this goto.
+  await waitForClerkToSettle(page);
 
   // An unprotected page that loads Clerk's client JS — required before
   // clerk.signOut/signIn, both of which operate on `window.Clerk`.

@@ -6,7 +6,7 @@ Every test case in the repo, so a refactor can be checked for losses:
 regenerate and diff. Counting files or totals is not enough -- a rework
 can keep both and still drop the one assertion that mattered.
 
-**2781 cases across 386 files** (0 skipped, 10 parameterised).
+**2784 cases across 387 files** (0 skipped, 10 parameterised).
 
 Source-level cases: a `.each` case is one entry here and many in vitest
 output, so this total is deliberately not the runner total.
@@ -808,7 +808,7 @@ output, so this total is deliberately not the runner total.
 - useUsers > calls listUsers with correct parameters and returns data
 - useUsers > handles empty responses correctly
 
-## app:auth -- 111 cases
+## app:auth -- 114 cases
 
 ### `apps/auth/tests/AccountSettingsPage.test.tsx`
 
@@ -986,6 +986,12 @@ output, so this total is deliberately not the runner total.
 ### `apps/auth/tests/useUpdateProfile.test.tsx`
 
 - useUpdateProfile > calls updateProfile on mutate
+
+### `apps/auth/tests/waitForClerkToSettle.test.ts`
+
+- waitForClerkToSettle > waits for window.Clerk.loaded on an app page
+- waitForClerkToSettle > does nothing on a blank page
+- waitForClerkToSettle > never throws when Clerk does not load in time
 
 ## app:landing -- 16 cases
 
