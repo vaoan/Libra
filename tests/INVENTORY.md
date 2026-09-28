@@ -6,7 +6,7 @@ Every test case in the repo, so a refactor can be checked for losses:
 regenerate and diff. Counting files or totals is not enough -- a rework
 can keep both and still drop the one assertion that mattered.
 
-**2784 cases across 387 files** (0 skipped, 10 parameterised).
+**2785 cases across 387 files** (0 skipped, 10 parameterised).
 
 Source-level cases: a `.each` case is one entry here and many in vitest
 output, so this total is deliberately not the runner total.
@@ -2310,7 +2310,7 @@ output, so this total is deliberately not the runner total.
 - useStoreProducts > sets isError when fetchStoreProducts rejects
 - useStoreProduct > fetches a single product by id
 
-## app:studio -- 414 cases
+## app:studio -- 415 cases
 
 ### `apps/studio/tests/AddDelegateForm.test.tsx`
 
@@ -2327,6 +2327,7 @@ output, so this total is deliberately not the runner total.
 - AddDelegateForm > does not submit when no permissions are checked
 - AddDelegateForm > clears form after successful submission
 - AddDelegateForm > toggles permission off after toggling on
+- AddDelegateForm > runs the search once the current user resolves after typing
 
 ### `apps/studio/tests/AutoTextarea.test.tsx`
 
