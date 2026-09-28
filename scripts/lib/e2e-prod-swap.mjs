@@ -190,6 +190,13 @@ export async function restorePreviousImage({
       `case "$prev" in ""|*-testids) echo "no clean previous env"; exit 0;; esac`,
       `mv -f env.prod.previous env.prod.rendered`,
       `docker compose --env-file env.prod.rendered up -d --remove-orphans >/dev/null 2>&1`,
+      // The window's -testids image is now neither current nor previous:
+      // remove it (and anything else that is not), or 1.09 GB a window fills
+      // the box's disk — which it did on 2026-09-28. Same rule as the
+      // deploy workflow's "Prune old images on the box" step. Never fatal.
+      `cur=$(grep '^SITE_PROD_IMAGE_NAME=' env.prod.rendered | cut -d= -f2-)`,
+      `prev=$(grep '^SITE_PROD_IMAGE_NAME=' env.prod.previous 2>/dev/null | cut -d= -f2-)`,
+      `(docker images ghcr.io/vaoan/libra-prod --format '{{.Repository}}:{{.Tag}}' | grep -vxF -e "$cur" -e "$prev" | xargs -r docker rmi >/dev/null 2>&1 || true)`,
       `echo restored`,
     ].join(" && "),
   );

@@ -62,6 +62,24 @@ Three secrets are misleadingly named:
 - **`CLOUDFLARED_CONFIG_BASE64` / `CLOUDFLARED_TUNNEL_CREDENTIALS_BASE64`**
   are the **staging** tunnel's — their ingress lists `ffxivbe.org` hostnames.
 
+### Disk filled with images (2026-09-28, production down ~15 min)
+
+The deploy dispatched after PR #429 failed its container health gate and the
+rollback restored a container into the same state: every route 502. Cause:
+the box's 19 GB disk was 100% full. Each deploy and each production E2E
+window pulls a 1.09 GB image and nothing removed the old ones (18 images,
+11.7 GB). nginx inside the container could not create `/var/lib/nginx/tmp`
+and supervisord gave up on it. Fixed on the box with `docker image prune -af`
+(10.65 GB reclaimed) and a container recreate; health came back in 10 s.
+
+Prevention, both keeping only the serving image and the previous one (the
+rollback and the E2E restore start the previous one again):
+
+- `deploy-production.yml` step "Prune old images on the box", before the
+  pull, prints `df -h /` afterwards.
+- The E2E runner's `restorePreviousImage` prunes the same way after the
+  clean image is back, so a window leaves no image behind.
+
 ### Email Address Obfuscation is off (2026-09-28)
 
 Cloudflare's Scrape Shield rewrote every email-looking string in served HTML
