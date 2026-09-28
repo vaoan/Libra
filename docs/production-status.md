@@ -62,6 +62,22 @@ Three secrets are misleadingly named:
 - **`CLOUDFLARED_CONFIG_BASE64` / `CLOUDFLARED_TUNNEL_CREDENTIALS_BASE64`**
   are the **staging** tunnel's — their ingress lists `ffxivbe.org` hostnames.
 
+### Email Address Obfuscation is off (2026-09-28)
+
+Cloudflare's Scrape Shield rewrote every email-looking string in served HTML
+to `[email protected]` plus a decoder script. The landing nav shows the
+signed-in user's email, so the server HTML and the hydrated DOM differed and
+React threw its hydration mismatch (#418) for every signed-in visitor. The CI
+production E2E (`landing-hydration.spec.ts`, run `e2e-20260928-0455-e5fb`)
+named the exact words. Turned off through the API with `PROD_CF_MASTER_TOKEN`:
+
+    PATCH /zones/04a535d85c76121383822de00f42f2d3/settings/email_obfuscation {"value":"off"}
+
+Note: `PROD_CF_ZONE_ID` in `.secrets` is **not** the `furrycolombia.com` zone
+id (the API answers "Authentication error" for it); the id above came from
+`GET /zones?name=furrycolombia.com`. Fix the secret before scripting against
+the zone.
+
 ## Host
 
 Libra runs as one Docker container on the RackNerd VPS; the Spotify bridge

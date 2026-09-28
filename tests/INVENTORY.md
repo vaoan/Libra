@@ -6,7 +6,7 @@ Every test case in the repo, so a refactor can be checked for losses:
 regenerate and diff. Counting files or totals is not enough -- a rework
 can keep both and still drop the one assertion that mattered.
 
-**2775 cases across 385 files** (0 skipped, 10 parameterised).
+**2776 cases across 385 files** (0 skipped, 10 parameterised).
 
 Source-level cases: a `.each` case is one entry here and many in vitest
 output, so this total is deliberately not the runner total.
@@ -1009,7 +1009,7 @@ output, so this total is deliberately not the runner total.
 - TermsPage > renders a last-updated line
 - TermsPage > renders all 10 section headings
 
-## app:payments -- 572 cases
+## app:payments -- 573 cases
 
 ### `apps/payments/tests/ActionButtons.test.tsx`
 
@@ -1368,6 +1368,7 @@ output, so this total is deliberately not the runner total.
 - PaymentMethodsPage > shows delete button for each method when canDelete
 - PaymentMethodsPage > shows active toggle for each method when canUpdate
 - PaymentMethodsPage > add button stays visible alongside the list
+- PaymentMethodsPage > keeps the add button disabled until the current user is known
 
 ### `apps/payments/tests/PaymentMethodTable.test.tsx`
 

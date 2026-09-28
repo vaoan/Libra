@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+let mockUser: { id: string } | undefined = { id: "seller-1" };
 let mockGrantedPermissions = [
   "seller_payment_methods.read",
   "seller_payment_methods.create",
@@ -20,7 +21,7 @@ vi.mock("auth/client", () => ({
       return requiredKeys.every((key) => mockGrantedPermissions.includes(key));
     },
   }),
-  useCurrentUser: () => ({ user: { id: "seller-1" } }),
+  useCurrentUser: () => ({ user: mockUser }),
 }));
 
 vi.mock("shared", () => ({
@@ -117,6 +118,7 @@ describe("PaymentMethodsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockMethodsLoading = false;
+    mockUser = { id: "seller-1" };
     mockGrantedPermissions = [
       "seller_payment_methods.read",
       "seller_payment_methods.create",
@@ -187,5 +189,18 @@ describe("PaymentMethodsPage", () => {
     // Both the add button and the method list are visible simultaneously
     expect(screen.getByTestId("add-payment-method-button")).toBeInTheDocument();
     expect(screen.getByTestId("payment-method-row")).toBeInTheDocument();
+  });
+
+  // The seller id comes from useCurrentUser, which resolves after the page
+  // renders. A click before then created a method for seller "" and nothing
+  // expanded -- the first attempt of every payment-method phase in the CI
+  // production run (e2e-20260928-0455-e5fb) died that way and passed on retry.
+  it("keeps the add button disabled until the current user is known", () => {
+    mockUser = undefined;
+    render(<PaymentMethodsPage />);
+    const button = screen.getByTestId("add-payment-method-button");
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(mockCreate.mutate).not.toHaveBeenCalled();
   });
 });
