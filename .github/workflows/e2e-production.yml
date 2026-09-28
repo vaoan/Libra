@@ -1,0 +1,131 @@
+# Production E2E: the manual runner (scripts/e2e-prod.mjs), run from CI.
+#
+# The runner was designed operator-only (docs/superpowers/specs/
+# 2026-09-27-production-e2e-design.md §2). This workflow is the deliberate,
+# temporary exception, recorded in the spec's 2026-09-28 amendment: the
+# operator's machine cannot carry a Playwright session right now, and the
+# flows that broke in production (studio orders link, catalog search race)
+# had never been exercised there. It runs after every successful production
+# deploy and on demand, does exactly what the runner does by hand — test-id
+# image in, Playwright, prune by run id, exact pre-window image restored —
+# and is switched off by setting the repository variable
+# PRODUCTION_E2E_IN_CI to anything but "true".
+#
+# It never rolls production back and never blocks a deploy: it reports.
+name: E2E Production
+
+on:
+  workflow_run:
+    workflows: ["Deploy Production"]
+    types: [completed]
+  workflow_dispatch:
+
+# Its own group, never deploy-production: the runner dispatches a deploy and
+# waits for it, so sharing that group would deadlock both workflows.
+concurrency:
+  group: e2e-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  NODE_VERSION: 24
+
+jobs:
+  e2e:
+    name: Production E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # Skipped (not failed) when the switch is off, when the deploy failed, and
+    # for the test-id deploy the runner itself dispatches mid-window — that one
+    # completes "successfully" and would otherwise start a second window.
+    if: >-
+      vars.PRODUCTION_E2E_IN_CI == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        !contains(github.event.workflow_run.display_title, 'test-id')))
+    env:
+      TARGET_ENV: prod
+      # The runner refuses under CI unless this is set; only this job sets it.
+      E2E_PROD_CI_ALLOWED: "true"
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Secret names match the $secret: references in .env.prod exactly.
+      # load-env.mjs sees CI=true and resolves $secret:KEY → process.env[KEY].
+      PROD_SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
+      PROD_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PROD_SUPABASE_SERVICE_ROLE_KEY }}
+      PROD_CLERK_PUBLISHABLE_KEY: ${{ secrets.PROD_CLERK_PUBLISHABLE_KEY }}
+      PROD_CLERK_SECRET_KEY: ${{ secrets.PROD_CLERK_SECRET_KEY }}
+      PROD_CLERK_DOMAIN: ${{ secrets.PROD_CLERK_DOMAIN }}
+      TALLY_FORM_ID: ${{ secrets.TALLY_FORM_ID }}
+      GOOGLE_TEST_EMAIL: ${{ secrets.GOOGLE_TEST_EMAIL }}
+      GOOGLE_TEST_PASSWORD: ${{ secrets.GOOGLE_TEST_PASSWORD }}
+      # The box: audio preflight and the image restore go over SSH.
+      RACKNERD_VPS_IP: ${{ secrets.RACKNERD_VPS_IP }}
+      RACKNERD_VPS_USER: ${{ secrets.RACKNERD_VPS_USER }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter auth-app exec playwright install --with-deps chromium
+
+      - name: Prepare SSH
+        env:
+          KEY: ${{ secrets.RACKNERD_VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          # The runner's default key path (scripts/lib/e2e-prod-swap.mjs boxSshTarget).
+          install -m 600 /dev/null ~/.ssh/libra_prod_ed25519
+          printf '%s\n' "$KEY" > ~/.ssh/libra_prod_ed25519
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run production E2E
+        run: pnpm e2e:prod --i-am-running-against-production
+
+      # The runner prunes and restores in its own finally; this shows, in the
+      # workflow log, whether it managed to. A runner killed by the timeout
+      # leaves a `running` row and possibly the test-id image live: this step
+      # then fails the job loudly instead of letting it end green.
+      - name: Audit the registry and the served image
+        if: always()
+        run: pnpm e2e:prod:audit
+
+      - name: Upload traces and screenshots
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: production-e2e-${{ github.run_id }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            apps/*/test-results/**
+            apps/*/e2e/screenshots/**
+
+      - name: Notify the critical thread
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CRITICAL_THREAD_ID: ${{ secrets.TELEGRAM_CRITICAL_THREAD_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          curl -sS -o /dev/null -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "message_thread_id=${TELEGRAM_CRITICAL_THREAD_ID}" \
+            --data-urlencode "text=Production E2E failed. Check the audit step: ${RUN_URL}"

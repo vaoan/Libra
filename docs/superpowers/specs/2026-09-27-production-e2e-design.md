@@ -3,7 +3,8 @@
 Manual, operator-run Playwright sessions against the live
 `store.furrycolombia.com`, where everything a run creates carries one run
 identity, so a run's leftovers are one query to find, one command to delete,
-and one table to audit. Never run from CI.
+and one table to audit. Designed for the operator's machine; since
+2026-09-28 also run from CI under an explicit opt-in (§13).
 
 Decided 2026-09-27 with the owner; the questions and answers are in §2.
 
@@ -19,7 +20,7 @@ would leave untagged rows behind if anything broke.
 
 | Question                               | Answer                                                                                                                        |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| CI or manual?                          | **Manual only.** No workflow runs it; CI keeps the development instance and staging.                                          |
+| CI or manual?                          | **Manual only** (2026-09-27). Amended 2026-09-28: also run from CI after each production deploy, behind a switch — see §13.   |
 | How does production get `data-testid`? | **Swap the image for the window.** A test-ID build is deployed, the suite runs, the clean build is redeployed.                |
 | E2E products visible to real shoppers? | **Yes, for the window's minutes, pruned right after.** Hidden products cannot be bought, so the purchase flows would not run. |
 | Registry or naming convention?         | **Registry tables in the production database** (approach 1). Names carry the run id too.                                      |
@@ -231,5 +232,36 @@ whose run id is unknown to `e2e_runs`.
 
 ## 12. Out of scope
 
-Running from CI or on a schedule; persistent production test accounts;
-Google and Discord login specs in production; hiding E2E products.
+Running on a schedule; persistent production test accounts; Google and
+Discord login specs in production; hiding E2E products.
+
+## 13. Amendment 2026-09-28: the runner in CI
+
+The owner reversed §2's first decision: "I need CI to test real production
+ways and my local can't do it right now." Two production defects had gone
+unnoticed because the flows were never exercised there (the studio
+pending-orders link to a route that does not exist; the catalog search's
+debounced URL write discarding a card navigation), and the operator's
+machine was out of memory for a Playwright session.
+
+- `.github/workflows/e2e-production.yml` runs the unchanged runner after every
+  successful "Deploy Production" and on `workflow_dispatch`. Gate: repository
+  variable `PRODUCTION_E2E_IN_CI == 'true'`; setting it to anything else
+  turns the workflow into a skip with no code change. This is how it is
+  turned off once the flows are stable.
+- The runner's blanket refusal under `CI` becomes an opt-in:
+  `E2E_PROD_CI_ALLOWED=true`, set by that workflow only
+  (`scripts/lib/e2e-prod-guard.mjs`). Every other pipeline still refuses.
+- The deploy the runner dispatches mid-window completes successfully and
+  would re-trigger the workflow into a second window; `deploy-production.yml`
+  now titles a test-id build "Deploy test-id image" and the E2E job skips a
+  `workflow_run` whose title contains `test-id`.
+- Own concurrency group `e2e-production`. Sharing `deploy-production` would
+  deadlock: the runner waits for a deploy that waits for the runner.
+- `pnpm e2e:prod:audit` runs `if: always()`, so a job the 90-minute timeout
+  killed cannot end green while a `running` row or the test-id image remains.
+- Reporting only: artifacts (traces, screenshots) and a Telegram message to
+  the critical thread on failure. Nothing rolls production back.
+
+Unchanged: registry, prune in `finally`, exact pre-window image restored,
+guard matrix, exclusions.
