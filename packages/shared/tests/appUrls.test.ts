@@ -85,3 +85,15 @@ describe("appUrls", () => {
     expect(appUrls).toEqual(EXPECTED_PROD_PATHS);
   });
 });
+
+describe("appHref", () => {
+  it("joins an app URL and a path without a double slash, even for the landing root", async () => {
+    clearAppUrlEnvVars();
+    const { appHref, appUrls } = await importFreshAppUrls();
+    expect(appHref(appUrls.landing, "/en/legal/terms")).toBe("/en/legal/terms");
+    expect(appHref(appUrls.auth, "/en/login")).toBe("/auth/en/login");
+    expect(appHref("https://store.example.com/auth/", "/en/login")).toBe(
+      "https://store.example.com/auth/en/login",
+    );
+  });
+});

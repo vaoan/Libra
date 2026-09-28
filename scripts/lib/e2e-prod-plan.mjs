@@ -42,8 +42,10 @@ export function buildPrunePlan({
   if (!isRunId(runId)) throw new Error(`"${runId}" is not a run id`);
 
   const profileIds = new Set(profiles.map((p) => p.id));
+  // Orders the run's users placed, and orders they sold: orders.seller_id
+  // does not cascade, so a seller cannot be deleted while a sale exists.
   const orderIds = orders
-    .filter((o) => profileIds.has(o.user_id))
+    .filter((o) => profileIds.has(o.user_id) || profileIds.has(o.seller_id))
     .map((o) => o.id);
 
   const storagePrefixes = new Set(orderIds);
@@ -85,6 +87,9 @@ export function buildPrunePlan({
     { kind: "orders", ids: orderIds },
     { kind: "rows", ids: leftoverRows },
     { kind: "products", ids: [...productIds] },
+    // user_permissions.granted_by does not cascade: grants an E2E admin made
+    // (to anyone) go before the admin's own profile.
+    { kind: "grants", ids: [...profileIds] },
     { kind: "profiles", ids: [...profileIds] },
     { kind: "clerk", ids: clerkIds },
   ];
@@ -117,4 +122,17 @@ export function auditVerdict({
   if (testIds === true) reasons.push("production serves test ids");
   if (testIds === null) reasons.push("could not read the public site");
   return { dirty: reasons.length > 0, reasons };
+}
+
+/**
+ * Does served HTML come from a test-id build? Only tid() output counts: the
+ * clean production build still carries one literal `data-testid="theme-toggle"`
+ * (a prop default in packages/ui), which fooled the first audit into
+ * reporting test ids live. Every app's navigation emits `app-navigation`
+ * through tid(), so that attribute is present exactly when the flag is on.
+ */
+export const TEST_ID_MARKER = 'data-testid="app-navigation"';
+
+export function hasTestIdMarker(html) {
+  return typeof html === "string" && html.includes(TEST_ID_MARKER);
 }

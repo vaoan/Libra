@@ -19,6 +19,8 @@ import { cn } from "ui";
 import { DiscordIcon } from "./DiscordIcon";
 import { GoogleIcon } from "./GoogleIcon";
 
+import { appUrls } from "@/shared/infrastructure/config";
+
 type Provider = "google" | "discord";
 
 interface ProviderConfig {
@@ -64,12 +66,18 @@ export function SocialLoginButtons() {
     setError(null);
 
     try {
+      // Clerk resolves these against the page ORIGIN, not against Next's
+      // basePath, and this app lives under `/auth` on the shared origin. A
+      // bare `/${locale}/sso-callback` therefore lands on the landing app
+      // (404) — the first production login on 2026-09-28 did exactly that.
+      // `appUrls.auth` (NEXT_PUBLIC_AUTH_URL, or the registry path `/auth`)
+      // carries the base path in every environment.
       const callbackUrl = returnTo
-        ? `/${locale}/callback?next=${encodeURIComponent(returnTo)}`
-        : `/${locale}/callback`;
+        ? `${appUrls.auth}/${locale}/callback?next=${encodeURIComponent(returnTo)}`
+        : `${appUrls.auth}/${locale}/callback`;
       await signIn.authenticateWithRedirect({
         strategy,
-        redirectUrl: `/${locale}/sso-callback`,
+        redirectUrl: `${appUrls.auth}/${locale}/sso-callback`,
         redirectUrlComplete: callbackUrl,
       });
     } catch (error_) {

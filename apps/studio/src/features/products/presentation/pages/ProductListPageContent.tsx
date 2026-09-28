@@ -1,7 +1,6 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useQueryStates } from "nuqs";
 import { tid } from "shared";
@@ -11,6 +10,7 @@ import { useProducts } from "@/features/products/application/hooks/useProducts";
 import { productsSearchParams } from "@/features/products/domain/searchParams";
 import { ProductFilters } from "@/features/products/presentation/components/ProductFilters";
 import { ProductTable } from "@/features/products/presentation/components/ProductTable";
+import { Link } from "@/shared/infrastructure/i18n";
 
 interface ProductListPageContentProps {
   canCreate: boolean;

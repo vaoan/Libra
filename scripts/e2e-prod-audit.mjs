@@ -8,13 +8,13 @@
  *
  * Spec: docs/superpowers/specs/2026-09-27-production-e2e-design.md §9.
  */
-import { auditVerdict, runIdFromEmail } from "./lib/e2e-prod-plan.mjs";
+import {
+  auditVerdict,
+  hasTestIdMarker,
+  runIdFromEmail,
+} from "./lib/e2e-prod-plan.mjs";
 import { createRegistry } from "./lib/e2e-prod-registry.mjs";
 import { loadEnv } from "./load-env.mjs";
-
-export function servedImageIsTestIds(html) {
-  return /data-testid=/.test(html);
-}
 
 const args = process.argv.slice(2);
 const envFlag = args.indexOf("--env");
@@ -38,7 +38,7 @@ const landing = process.env.NEXT_PUBLIC_LANDING_URL;
 // null when the site could not be read: the audit must not read a dead or
 // unreachable site as "clean".
 const testIdsLive = await fetch(`${landing}/`, { cache: "no-store" })
-  .then(async (r) => (r.ok ? servedImageIsTestIds(await r.text()) : null))
+  .then(async (r) => (r.ok ? hasTestIdMarker(await r.text()) : null))
   .catch(() => null);
 console.log(
   `\nserved image carries test ids: ${

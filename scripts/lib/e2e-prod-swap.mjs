@@ -5,6 +5,8 @@
  * Spec: docs/superpowers/specs/2026-09-27-production-e2e-design.md §8.
  */
 import { spawn } from "node:child_process";
+
+import { TEST_ID_MARKER, hasTestIdMarker } from "./e2e-prod-plan.mjs";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
@@ -51,7 +53,7 @@ export async function waitForTestIds({
     const html = await fetchImpl(url, { cache: "no-store" })
       .then((r) => (r.ok ? r.text() : ""))
       .catch(() => "");
-    if (/data-testid=/.test(html) === present) return;
+    if (hasTestIdMarker(html) === present) return;
     if (clock() - start >= timeoutMs) {
       throw new Error(
         `${url} did not ${present ? "start" : "stop"} serving test ids within ${timeoutMs}ms`,
@@ -159,7 +161,14 @@ export function runSshCli(command, target = boxSshTarget()) {
  * image is still on the box, so the exact image that served before the
  * test-id deploy comes back with a compose up — no build, no branch, no
  * dependency on the tunnel. Verified on the box's loopback: the landing page
- * (following its locale redirect) must carry no data-testid.
+ * (following its locale redirect) must no longer carry tid()'s
+ * `data-testid="app-navigation"` marker — the clean build keeps one literal
+ * `theme-toggle` test id, so "no data-testid at all" was never true.
+ *
+ * Guarded on the box: acts only when the serving image is a test-id build and
+ * `env.prod.previous` is clean. A later normal deploy makes the previous env
+ * the test-id one, and restoring it would bring test ids back, so "clean
+ * already" is a no-op and a test-id previous refuses.
  */
 export async function restorePreviousImage({
   runSsh = runSshCli,
@@ -191,7 +200,7 @@ export async function restorePreviousImage({
   const start = clock();
   for (;;) {
     const count = await runSsh(
-      `curl -sL http://127.0.0.1:${BOX_PORT}/ | grep -c data-testid= || true`,
+      `curl -sL http://127.0.0.1:${BOX_PORT}/ | grep -c '${TEST_ID_MARKER}' || true`,
     );
     if (count.trim() === "0") return;
     if (clock() - start >= timeoutMs) {

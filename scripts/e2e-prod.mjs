@@ -19,6 +19,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { pruneRun } from "./e2e-prod-prune.mjs";
+import { buildPlaywrightCommand } from "./lib/e2e-prod-playwright.mjs";
 import { createRegistry } from "./lib/e2e-prod-registry.mjs";
 import {
   boxSshTarget,
@@ -30,7 +31,7 @@ import {
   watchRun,
 } from "./lib/e2e-prod-swap.mjs";
 import { mintRunId } from "./lib/e2e-run-id.mjs";
-import { loadEnv } from "./load-env.mjs";
+import { fillFromSecrets, loadEnv } from "./load-env.mjs";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const isWindows = process.platform === "win32";
@@ -103,7 +104,15 @@ if (running.length > 0) {
   );
 }
 
-// SSH is not optional: the restore at the end goes through it.
+// SSH is not optional: the restore at the end goes through it. No .env file
+// references the box's coordinates, so loadEnv() does not expose them; read
+// them from .secrets directly (they are repository secrets, synced by
+// pnpm sync-secrets).
+fillFromSecrets(process.env, [
+  "RACKNERD_VPS_IP",
+  "RACKNERD_VPS_USER",
+  "RACKNERD_VPS_SSH_KEY_PATH",
+]);
 try {
   boxSshTarget();
 } catch (error) {
@@ -211,19 +220,12 @@ try {
 process.exit(status === "passed" ? 0 : 1);
 
 function playwright(app) {
-  const appDir = resolve(rootDir, `apps/${app}`);
-  const pwArgs = [
-    "--dir",
-    appDir,
-    "exec",
-    "playwright",
-    "test",
-    "--config",
-    "playwright.config.ts",
-    "--grep-invert",
-    `@ux|${EXCLUDED}`,
-    ...passthrough,
-  ];
+  const { command, args, cwd } = buildPlaywrightCommand({
+    rootDir,
+    app,
+    excluded: EXCLUDED,
+    passthrough,
+  });
   const env = {
     ...process.env,
     TARGET_ENV: "prod",
@@ -231,16 +233,10 @@ function playwright(app) {
     E2E_PRODUCTION_ACK: runId,
     E2E_RUN_FAILURES_FILE: failuresFile,
   };
-  console.log(`▶ playwright  app=${app}\n`);
+  console.log(`▶ playwright  app=${app}
+`);
   return new Promise((resolvePromise) => {
-    const child = isWindows
-      ? spawn("cmd.exe", ["/d", "/s", "/c", "pnpm", ...pwArgs], {
-          cwd: rootDir,
-          stdio: "inherit",
-          windowsHide: true,
-          env,
-        })
-      : spawn("pnpm", pwArgs, { cwd: rootDir, stdio: "inherit", env });
+    const child = spawn(command, args, { cwd, stdio: "inherit", env });
     child.on("exit", (code) => resolvePromise(code ?? 1));
   });
 }

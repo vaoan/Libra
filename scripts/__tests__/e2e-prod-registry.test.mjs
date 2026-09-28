@@ -175,4 +175,26 @@ describe("e2e-prod-registry", () => {
     expect(result.failures).toEqual(["storage order_1: HTTP 500"]);
     expect(result.deleted.storage).toBe(0);
   });
+
+  it("ordersForProfiles asks for orders placed by OR sold by the profiles", async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(ok([]));
+    await registry(fetchImpl).ordersForProfiles(["p1", "p2"]);
+    const url = decodeURIComponent(fetchImpl.mock.calls[0][0]);
+    expect(url).toContain(
+      'orders?select=id,user_id,seller_id&or=(user_id.in.("p1","p2"),seller_id.in.("p1","p2"))',
+    );
+  });
+
+  it("executePlan deletes grants by granted_by", async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(ok([]));
+    const result = await registry(fetchImpl).executePlan(
+      [{ kind: "grants", ids: ["prof_a"] }],
+      { dryRun: false },
+    );
+    expect(fetchImpl.mock.calls[0][0]).toBe(
+      "https://db.example.com/rest/v1/user_permissions?granted_by=eq.prof_a",
+    );
+    expect(fetchImpl.mock.calls[0][1].method).toBe("DELETE");
+    expect(result.deleted.grants).toBe(1);
+  });
 });
