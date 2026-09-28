@@ -42,8 +42,10 @@ export function buildPrunePlan({
   if (!isRunId(runId)) throw new Error(`"${runId}" is not a run id`);
 
   const profileIds = new Set(profiles.map((p) => p.id));
+  // Orders the run's users placed, and orders they sold: orders.seller_id
+  // does not cascade, so a seller cannot be deleted while a sale exists.
   const orderIds = orders
-    .filter((o) => profileIds.has(o.user_id))
+    .filter((o) => profileIds.has(o.user_id) || profileIds.has(o.seller_id))
     .map((o) => o.id);
 
   const storagePrefixes = new Set(orderIds);
@@ -85,6 +87,9 @@ export function buildPrunePlan({
     { kind: "orders", ids: orderIds },
     { kind: "rows", ids: leftoverRows },
     { kind: "products", ids: [...productIds] },
+    // user_permissions.granted_by does not cascade: grants an E2E admin made
+    // (to anyone) go before the admin's own profile.
+    { kind: "grants", ids: [...profileIds] },
     { kind: "profiles", ids: [...profileIds] },
     { kind: "clerk", ids: clerkIds },
   ];

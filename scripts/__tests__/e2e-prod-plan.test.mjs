@@ -33,14 +33,38 @@ const base = {
 };
 
 describe("buildPrunePlan", () => {
-  it("orders the steps storage → orders → rows → products → profiles → clerk", () => {
+  it("orders the steps storage → orders → rows → products → grants → profiles → clerk", () => {
     expect(buildPrunePlan(base).map((s) => s.kind)).toEqual([
       "storage",
       "orders",
       "rows",
       "products",
+      "grants",
       "profiles",
       "clerk",
+    ]);
+  });
+
+  it("sweeps permission grants made by the run's users before deleting them", () => {
+    // user_permissions.granted_by has no cascade: an E2E admin that granted a
+    // permission cannot be deleted while the grant exists (production run
+    // e2e-20260928-0118-9dd0 left 8 profiles behind this way).
+    const grants = buildPrunePlan(base).find((s) => s.kind === "grants");
+    expect(grants.ids).toEqual(["prof_a"]);
+  });
+
+  it("includes orders sold by the run's users, not only orders they placed", () => {
+    const plan = buildPrunePlan({
+      ...base,
+      orders: [
+        { id: "order_1", user_id: "prof_a", seller_id: "real" },
+        { id: "order_sold", user_id: "real_buyer", seller_id: "prof_a" },
+        { id: "order_real", user_id: "real_buyer", seller_id: "real" },
+      ],
+    });
+    expect(plan.find((s) => s.kind === "orders").ids.sort()).toEqual([
+      "order_1",
+      "order_sold",
     ]);
   });
 

@@ -101,6 +101,8 @@ export function createRegistry({
       }
       case "products":
         return rest("DELETE", `products?id=eq.${id}`);
+      case "grants":
+        return rest("DELETE", `user_permissions?granted_by=eq.${id}`);
       case "profiles":
         return rest("DELETE", `user_profiles?id=eq.${id}`);
       case "clerk":
@@ -191,9 +193,10 @@ export function createRegistry({
 
     async ordersForProfiles(profileIds) {
       if (profileIds.length === 0) return [];
+      const list = inList(profileIds);
       return rest(
         "GET",
-        `orders?select=id,user_id&user_id=${inList(profileIds)}`,
+        `orders?select=id,user_id,seller_id&or=(user_id.${list},seller_id.${list})`,
       );
     },
 
