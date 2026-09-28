@@ -27,6 +27,13 @@ vi.mock("shared", () => ({
   tid: (id: string) => ({ "data-testid": id }),
 }));
 
+// The auth app lives under a base path on the shared origin; Clerk resolves
+// the redirect URLs it is given against the origin, so they must carry the
+// app's own URL (NEXT_PUBLIC_AUTH_URL), never a bare `/${locale}/...`.
+vi.mock("@/shared/infrastructure/config", () => ({
+  appUrls: { auth: "https://store.example.com/auth" },
+}));
+
 const returnToParamMock = vi.fn((): string | null => null);
 
 vi.mock("next/navigation", () => ({
@@ -85,8 +92,8 @@ describe("SocialLoginButtons", () => {
     // signed in — see callback/route.test.ts.
     expect(authenticateWithRedirect).toHaveBeenCalledWith(
       expect.objectContaining({
-        redirectUrl: "/en/sso-callback",
-        redirectUrlComplete: "/en/callback",
+        redirectUrl: "https://store.example.com/auth/en/sso-callback",
+        redirectUrlComplete: "https://store.example.com/auth/en/callback",
       }),
     );
   });
@@ -101,7 +108,7 @@ describe("SocialLoginButtons", () => {
 
     expect(authenticateWithRedirect).toHaveBeenCalledWith(
       expect.objectContaining({
-        redirectUrlComplete: `/en/callback?next=${encodeURIComponent("/en/checkout")}`,
+        redirectUrlComplete: `https://store.example.com/auth/en/callback?next=${encodeURIComponent("/en/checkout")}`,
       }),
     );
   });

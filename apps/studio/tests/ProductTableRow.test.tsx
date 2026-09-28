@@ -33,14 +33,14 @@ vi.mock("next/image", () => ({
   ),
 }));
 
-vi.mock("next/link", () => ({
-  default: ({
-    children,
-    href,
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => <a href={href}>{children}</a>,
+// The row links through the locale-aware Link (next-intl), not next/link.
+vi.mock("@/shared/infrastructure/i18n", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Link: ({ children, href, ...props }: any) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock("ui", () => ({

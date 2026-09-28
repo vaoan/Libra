@@ -6,9 +6,16 @@ import {
   waitForTestIds,
 } from "../lib/e2e-prod-swap.mjs";
 
+// The clean production build still carries one literal
+// data-testid="theme-toggle" (a prop default in packages/ui), so "any
+// data-testid" is not a signal. tid() output is: app-navigation is emitted
+// by every app's nav only when NEXT_PUBLIC_ENABLE_TEST_IDS is on.
 const html = (withIds) => ({
   ok: true,
-  text: async () => (withIds ? '<div data-testid="x">' : "<div>"),
+  text: async () =>
+    withIds
+      ? '<nav data-testid="app-navigation"><button data-testid="theme-toggle">'
+      : '<nav><button data-testid="theme-toggle">',
 });
 
 describe("waitForTestIds", () => {
@@ -144,7 +151,9 @@ describe("restorePreviousImage", () => {
     expect(runSsh.mock.calls[0][0]).toContain(
       "docker compose --env-file env.prod.rendered up -d",
     );
-    expect(runSsh.mock.calls[1][0]).toContain("grep -c data-testid=");
+    expect(runSsh.mock.calls[1][0]).toContain(
+      "grep -c 'data-testid=\"app-navigation\"'",
+    );
     expect(runSsh).toHaveBeenCalledTimes(3);
   });
 

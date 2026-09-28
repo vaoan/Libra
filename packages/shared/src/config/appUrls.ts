@@ -22,3 +22,16 @@ export const appUrls = Object.freeze({
   admin: resolveAppUrl("admin"),
   auth: resolveAppUrl("auth"),
 });
+
+/**
+ * Join an app URL and an app-relative path without a double slash. The
+ * landing app's registry path is `/`, so `${appUrls.landing}/en/legal/terms`
+ * produced `//en/legal/terms` — a protocol-relative URL to a host called
+ * "en" — on every footer in production (2026-09-28).
+ */
+export function appHref(appUrl: string, path: string): string {
+  let base = appUrl;
+  while (base.endsWith("/")) base = base.slice(0, -1);
+  const suffix = path.startsWith("/") ? path : "/" + path;
+  return base + suffix;
+}

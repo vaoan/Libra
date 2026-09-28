@@ -34,6 +34,20 @@ vi.mock("next/link", () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
+// The locale-aware Link (next-intl): a locale-less next/link href relies on
+// the middleware's 307 to add the locale, and under production latency that
+// redirect raced the client navigation and bounced the seller back to the
+// list (production E2E run e2e-20260928-0136-b561). Rendering it with a
+// marker lets the test prove the component uses this one.
+vi.mock("@/shared/infrastructure/i18n", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Link: ({ children, href, ...props }: any) => (
+    <a href={href} data-i18n-link="true" {...props}>
+      {children}
+    </a>
+  ),
+}));
+
 vi.mock("ui", () => ({
   cn: (...args: unknown[]) => args.filter(Boolean).join(" "),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,5 +129,13 @@ describe("ProductListPage", () => {
   it("renders add product button", () => {
     render(<ProductListPage />);
     expect(screen.getByTestId("new-product-button")).toBeInTheDocument();
+  });
+
+  it("links to the new-product page with the locale-aware Link", () => {
+    mockHasPermission.mockReturnValue(true);
+    render(<ProductListPage />);
+    const anchor = screen.getByRole("link", { name: /products\.newProduct/ });
+    expect(anchor).toHaveAttribute("data-i18n-link", "true");
+    expect(anchor).toHaveAttribute("href", "/products/new");
   });
 });
