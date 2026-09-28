@@ -162,6 +162,12 @@ runs before it each found a real defect, all fixed the same day:
 | `…-0726-c2f5` (CI #4) | user switch left a page mid-Clerk-init → cookieless init    | PR #431  |
 | `…-0758-60c6` (local) | delegate search dropped a query typed before user resolved  | PR #432  |
 
+Confirmed by `e2e-20260928-0925-30b4` (run 36403281609): the same 117 tests
+green again with zero retries. Between the two, `e2e-20260928-0848-27f4`
+failed once because Supabase Storage answered 502 after 28 s during a
+Supabase incident; the suites now retry a storage 5xx three times and name
+the provider when it persists (PR #434).
+
 Policy since #429: production runs never retry and keep a trace of every
 failed attempt (`retries: 0`, `trace: retain-on-failure` under
 `TARGET_ENV=prod`). A test that needs a second try is a failure.
