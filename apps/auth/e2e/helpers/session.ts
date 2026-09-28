@@ -5,6 +5,7 @@ import { clerk, clerkSetup } from "@clerk/testing/playwright";
 import type { BrowserContext } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
+import { waitForClerkToSettle } from "./clerkSettle";
 import { mintProductionSessionToken } from "./clerkSession";
 import { assertNotProductionClerk, productionGuardContext } from "./guardEnv";
 import {
@@ -451,6 +452,12 @@ async function mintDevelopmentSessionToken(
  * one left carrying the new session. Cookies are shared across the whole
  * `context` regardless of which page set them, so any other page the caller
  * later navigates also sees the new session.
+ *
+ * Before leaving the page it is on, waits for Clerk's browser script there
+ * to finish initializing (`waitForClerkToSettle`): navigating away in that
+ * window made Clerk's first FAPI calls go out without cookies, which reset
+ * the client and made the route guard's redirect abort this very `goto`
+ * (CI production run e2e-20260928-0726-c2f5).
  */
 export async function injectSession(
   context: BrowserContext,
@@ -458,6 +465,9 @@ export async function injectSession(
 ): Promise<void> {
   await ensureClerkSetup();
   const page = context.pages()[0] ?? (await context.newPage());
+  // Never leave the current page mid-Clerk-init: its cookieless FAPI calls
+  // would reset the client and the guard's redirect would abort this goto.
+  await waitForClerkToSettle(page);
 
   // An unprotected page that loads Clerk's client JS — required before
   // clerk.signOut/signIn, both of which operate on `window.Clerk`.
