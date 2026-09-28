@@ -30,3 +30,8 @@ does NOT pre-delete when domain is undefined (localhost dev)  # replaced by "nev
 pre-deletes the no-domain cookie before setting when domain is present  # asserted the cross-subdomain double-write; replaced by "never pre-deletes and never sets a domain, on any hostname"
 calls deleteCookie once with base options when domain is undefined  # replaced by "deletes exactly once with host-only options, on any hostname"
 calls deleteCookie twice when domain is present (double-delete pattern)  # asserted the cross-subdomain double-delete; replaced by "deletes exactly once with host-only options, on any hostname"
+renders badge with count  # PendingOrdersBadge component deleted: nothing imported it and it linked to a 404 (payments /orders/received); the live badge in ProductListPageContent is covered by "sends the pending-orders badge to the payments sales page in the current locale"
+renders link to received orders page  # asserted the 404 href /orders/received; replaced by "sends the pending-orders badge to the payments sales page in the current locale"
+renders the translated pending orders text  # PendingOrdersBadge component deleted (unused); the live badge's text is rendered by ProductListPageContent
+returns null when count is 0  # PendingOrdersBadge component deleted (unused); ProductListPageContent hides the badge on a zero count in the same render branch
+returns null when count is undefined  # PendingOrdersBadge component deleted (unused); ProductListPageContent hides the badge on an undefined count in the same render branch
