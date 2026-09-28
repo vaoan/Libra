@@ -452,6 +452,12 @@ async function mintDevelopmentSessionToken(
  * one left carrying the new session. Cookies are shared across the whole
  * `context` regardless of which page set them, so any other page the caller
  * later navigates also sees the new session.
+ *
+ * Before leaving the page it is on, waits for Clerk's browser script there
+ * to finish initializing (`waitForClerkToSettle`): navigating away in that
+ * window made Clerk's first FAPI calls go out without cookies, which reset
+ * the client and made the route guard's redirect abort this very `goto`
+ * (CI production run e2e-20260928-0726-c2f5).
  */
 export async function injectSession(
   context: BrowserContext,
