@@ -30,7 +30,7 @@ import {
   watchRun,
 } from "./lib/e2e-prod-swap.mjs";
 import { mintRunId } from "./lib/e2e-run-id.mjs";
-import { loadEnv } from "./load-env.mjs";
+import { loadEnv, readSecret } from "./load-env.mjs";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const isWindows = process.platform === "win32";
@@ -103,7 +103,17 @@ if (running.length > 0) {
   );
 }
 
-// SSH is not optional: the restore at the end goes through it.
+// SSH is not optional: the restore at the end goes through it. No .env file
+// references the box's coordinates, so loadEnv() does not expose them; read
+// them from .secrets directly (they are repository secrets, synced by
+// pnpm sync-secrets).
+for (const k of [
+  "RACKNERD_VPS_IP",
+  "RACKNERD_VPS_USER",
+  "RACKNERD_VPS_SSH_KEY_PATH",
+]) {
+  process.env[k] ??= readSecret(k);
+}
 try {
   boxSshTarget();
 } catch (error) {

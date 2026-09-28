@@ -131,6 +131,17 @@ const ALLOWED_ENVS = [
   "ci",
 ];
 
+/**
+ * One value straight from the secrets file, for tooling that needs a secret
+ * no .env file references (the production E2E runner's SSH target).
+ * `undefined` when the file or the key is absent — never throws, so a CI
+ * runner without a secrets file degrades to "unset".
+ */
+export function readSecret(name) {
+  const value = readSecretsFile()[name];
+  return value === undefined || value === "" ? undefined : value;
+}
+
 export function loadEnv(targetEnv) {
   const env = targetEnv || process.env.TARGET_ENV || "dev";
   if (!ALLOWED_ENVS.includes(env)) {
