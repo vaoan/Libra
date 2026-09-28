@@ -56,4 +56,26 @@ describe("deploy-production.yml test_ids input", () => {
     const occurrences = workflow.match(/-testids/g) ?? [];
     expect(occurrences.length).toBe(1);
   });
+
+  // 2026-09-28: the box's 19 GB disk filled with 1.09 GB images — one per
+  // deploy, one per E2E window, none ever removed. nginx in the container
+  // could not create its temp dir and every route answered 502; the rollback
+  // restored a container into the same full disk. Prune before pulling, but
+  // keep the previous image: the rollback and the E2E restore start it again.
+  it("prunes old images on the box before pulling, keeping current and previous", () => {
+    const deploy = workflow.indexOf("- name: Deploy over SSH");
+    const prune = workflow.indexOf("- name: Prune old images on the box");
+    expect(prune).toBeGreaterThan(-1);
+    expect(prune).toBeLessThan(deploy);
+    const step = workflow.slice(prune, deploy);
+    expect(step).toContain("grep '^SITE_PROD_IMAGE_NAME=' env.prod.rendered");
+    expect(step).toContain("grep '^SITE_PROD_IMAGE_NAME=' env.prod.previous");
+    // The shell quoting inside `ssh box "..."` is what the box receives:
+    // keep the serving image and the previous one, remove the rest.
+    expect(step).toContain("grep -vxF -e");
+    expect(step).toContain("$cur");
+    expect(step).toContain("$prev");
+    expect(step).toContain("| xargs -r docker rmi");
+    expect(step).toContain("df -h /");
+  });
 });

@@ -157,6 +157,33 @@ describe("restorePreviousImage", () => {
     expect(runSsh).toHaveBeenCalledTimes(3);
   });
 
+  it("removes the images that are neither current nor previous once the clean image is back", async () => {
+    // The -testids image of every window stayed on the box: 1.09 GB each,
+    // until the disk filled and production answered 502 (2026-09-28).
+    const calls = [];
+    const runSsh = async (cmd) => {
+      calls.push(cmd);
+      return calls.length === 1 ? "restored" : "0";
+    };
+    await restorePreviousImage({
+      runSsh,
+      sleep: async () => {},
+      clock: () => 0,
+    });
+    const restore = calls[0];
+    expect(restore.indexOf("up -d")).toBeLessThan(
+      restore.indexOf("docker rmi"),
+    );
+    expect(restore.indexOf("docker rmi")).toBeLessThan(
+      restore.indexOf("echo restored"),
+    );
+    expect(restore).toContain(
+      'grep -vxF -e "$cur" -e "$prev" | xargs -r docker rmi',
+    );
+    // A prune failure must not turn a successful restore into an error.
+    expect(restore).toContain("xargs -r docker rmi >/dev/null 2>&1 || true");
+  });
+
   it("does nothing when the box already serves a clean image", async () => {
     const runSsh = vi
       .fn()

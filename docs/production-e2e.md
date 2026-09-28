@@ -43,7 +43,9 @@ What happens: preflight (secrets, `gh auth`, public `/health`, no other run
 test-id image is built **from the branch the serving image came from** and
 deployed → Playwright runs with `E2E_RUN_ID` and `E2E_PRODUCTION_ACK` →
 prune by run id → **the pre-window image is restored** from the box's
-`env.prod.previous` (no rebuild, exact same image) → status recorded. The
+`env.prod.previous` (no rebuild, exact same image) and the window's
+`-testids` image is removed from the box (1.09 GB each; the disk filled on
+2026-09-28) → status recorded. The
 Google/Discord login specs never run here. A window never changes what
 production serves once it is over; if a `registerRow` failed inside
 Playwright the run is marked `failed` and the audit shows it.

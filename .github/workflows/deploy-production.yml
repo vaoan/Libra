@@ -130,6 +130,16 @@ jobs:
             BatchMode yes
           EOF
 
+      # 2026-09-28: the 19 GB disk filled with 1.09 GB images (one per deploy,
+      # one per E2E window, none removed); nginx in the container could not
+      # create its temp dir and every route answered 502. Keep only the image
+      # that serves now and the previous one (the rollback below and the E2E
+      # restore start it again); remove the rest before pulling another.
+      - name: Prune old images on the box
+        run: |
+          set -euo pipefail
+          ssh box "cd ${DEPLOY_DIR} 2>/dev/null || exit 0; cur=\$(grep '^SITE_PROD_IMAGE_NAME=' env.prod.rendered 2>/dev/null | cut -d= -f2-); prev=\$(grep '^SITE_PROD_IMAGE_NAME=' env.prod.previous 2>/dev/null | cut -d= -f2-); docker images ghcr.io/vaoan/libra-prod --format '{{.Repository}}:{{.Tag}}' | grep -vxF -e \"\$cur\" -e \"\$prev\" | xargs -r docker rmi >/dev/null 2>&1 || true; docker image prune -f >/dev/null 2>&1 || true; df -h / | tail -1"
+
       - name: Deploy over SSH
         run: |
           set -euo pipefail
