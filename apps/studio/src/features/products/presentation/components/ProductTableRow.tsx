@@ -2,7 +2,6 @@
 
 import type { DraggableProvided } from "@hello-pangea/dnd";
 import { GripVertical, Pencil, Trash2, Users } from "lucide-react";
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { useCallback, useState } from "react";
@@ -15,6 +14,7 @@ import {
   TYPE_COLOR_MAP,
 } from "@/features/products/domain/constants";
 import type { Product } from "@/features/products/domain/types";
+import { Link } from "@/shared/infrastructure/i18n";
 
 const STATUS_ON = "on";
 const STATUS_OFF = "off";
