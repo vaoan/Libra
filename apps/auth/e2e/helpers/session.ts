@@ -353,8 +353,10 @@ export async function deleteClerkUserBySub(clerkUserId: string): Promise<void> {
  * Backend-API sessions (clerkSession.ts). Development keys keep the SDK path.
  *
  * Refuses to start (via `ensureRunRegistered`) when `E2E_RUN_ID` names a run
- * `e2e_runs` does not know; inside a run the email token is
- * `<Date.now()>-<run_id>` so same-label users never collide.
+ * `e2e_runs` does not know. The address comes from `runScopedEmail(label)`:
+ * inside a run its token is `<Date.now() in base36>-<run_id>` so same-label
+ * users never collide, and the label is cut so the local part stays within
+ * the 64 characters Clerk accepts (long labels drew a bare 422 in production).
  */
 export async function createTestUser(
   label: string,
