@@ -1,10 +1,10 @@
 # Production status & restore path
 
-> **Current state (2026-09-27): production is being brought back.** The host
-> is provisioned, the database is restored and verified, and the deploy
-> pipeline exists. Two dashboard steps still gate the cutover: the Cloudflare
-> tunnel token and the Clerk production instance. Until then
-> `store.furrycolombia.com` still returns Cloudflare 530.
+> **Current state (2026-09-28): production is LIVE.** `store.furrycolombia.com`
+> serves all six apps from the RackNerd box through Cloudflare Tunnel
+> `libra-prod`, against the restored production database and the production
+> Clerk instance. What remains is the owner's first login and the first
+> supervised production E2E run (`docs/production-e2e.md`).
 >
 > The design this follows is
 > `docs/superpowers/specs/2026-09-05-production-re-release-design.md`; the
@@ -12,15 +12,15 @@
 
 ## Where each piece stands
 
-| Piece             | State                                                                                                                                               |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Host              | **Ready.** The RackNerd VPS that runs the Spotify→Discord bridge, provisioned by `scripts/server/provision-racknerd.sh` on 2026-09-27.              |
-| Database          | **Ready.** Supabase `olafyajipvsltohagiah` un-paused, wiped, migrated from the baseline, restored from the 2026-09-27 snapshot and verified.        |
-| Image             | **Ready.** `docker/ci/Dockerfile` builds the production image; CI builds it on every PR.                                                            |
-| Deploy pipeline   | **Ready, untested against the box.** `.github/workflows/deploy-production.yml`; the dry run needs the branch merged to `develop` first.             |
-| Cloudflare tunnel | **Blocked on a token.** `cloudflared` is installed on the box but not configured. See [The tunnel](#the-tunnel).                                    |
-| Clerk production  | **Ready.** Production instance live at `clerk.furrycolombia.com`; libra points at it from the next deploy. See [Clerk](#clerk-production-instance). |
-| Scheduled backups | **Running.** `backup-scheduled.yml` re-enabled 2026-09-27, daily 04:00 UTC; it doubles as the keepalive against another Supabase pause.             |
+| Piece             | State                                                                                                                                                      |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Host              | **Ready.** The RackNerd VPS that runs the Spotify→Discord bridge, provisioned by `scripts/server/provision-racknerd.sh` on 2026-09-27.                     |
+| Database          | **Ready.** Supabase `olafyajipvsltohagiah` un-paused, wiped, migrated from the baseline, restored from the 2026-09-27 snapshot and verified.               |
+| Image             | **Ready.** `docker/ci/Dockerfile` builds the production image; CI builds it on every PR.                                                                   |
+| Deploy pipeline   | **Ready, untested against the box.** `.github/workflows/deploy-production.yml`; the dry run needs the branch merged to `develop` first.                    |
+| Cloudflare tunnel | **Live.** Tunnel `libra-prod` (`9c82d482-5bfe-4744-a88a-23f4b407a28c`), connector running as systemd `cloudflared` on the box; `store` CNAME points at it. |
+| Clerk production  | **Ready.** Production instance live at `clerk.furrycolombia.com`; libra points at it from the next deploy. See [Clerk](#clerk-production-instance).        |
+| Scheduled backups | **Running.** `backup-scheduled.yml` re-enabled 2026-09-27, daily 04:00 UTC; it doubles as the keepalive against another Supabase pause.                    |
 
 ## What happened, briefly
 
@@ -130,21 +130,24 @@ image.
 
 ## The tunnel
 
-`.env.prod` has `CLOUDFLARE_TUNNEL_APP_ENABLED=false` and an empty
-`CLOUDFLARE_TUNNEL_APP_TOKEN`. To finish:
+Done 2026-09-28. No token on hand could create a tunnel (every existing API
+token lacked `Account → Cloudflare Tunnel → Edit`), so the owner signed in to
+the dashboard in an automation browser and a new user API token was minted
+from that session with **every** account, zone and user permission group:
+`PROD_CF_MASTER_TOKEN` (libra `.secrets` and repository secret). Treat it as
+root for the furrycolombia Cloudflare account; rotate it from **My Profile →
+API Tokens** if it ever leaks.
 
-1. In the Cloudflare dashboard for the account that owns `furrycolombia.com`,
-   **Zero Trust → Networks → Tunnels → Create**, name `libra-prod`, and copy
-   the tunnel token.
-2. Add one public hostname: `store.furrycolombia.com` → `http://localhost:9090`.
-   The dashboard creates the proxied CNAME itself.
-3. On the box: `sudo cloudflared service install <token>`.
-4. Store the token as the `CLOUDFLARE_TUNNEL_APP_TOKEN` repository secret and
-   set `CLOUDFLARE_TUNNEL_APP_ENABLED=true` in `.env.prod`.
+With it: tunnel `libra-prod` created (remotely managed), ingress
+`store.furrycolombia.com → http://localhost:9090`, connector token saved as
+`PROD_CLOUDFLARE_TUNNEL_TOKEN`, `store` CNAME repointed to
+`9c82d482-5bfe-4744-a88a-23f4b407a28c.cfargotunnel.com` (proxied), and
+`cloudflared service install <token>` on the box. The service is enabled and
+survives reboots; a rebuild repeats only that last command.
 
-A dashboard-managed tunnel needs only that token. An API token with
-`Account → Cloudflare Tunnel → Edit` and `Zone → DNS → Edit` would let the
-same be scripted, but is not required.
+`.env.prod` keeps `CLOUDFLARE_TUNNEL_APP_ENABLED=false`: that flag drives the
+app-side tunnel tooling used for staging, not the production connector, which
+is a host service.
 
 ## Clerk production instance
 
@@ -179,9 +182,9 @@ parity list is the support list if someone's email changed.
 
 1. Clerk production live and verified — **done 2026-09-27**; libra switches to it on the next deploy.
 2. Database restored and verified — **done 2026-09-27**.
-3. Container deployed via the workflow, healthcheck green, audio unaffected
-   under load.
-4. Tunnel connected, `store.furrycolombia.com` returns 200.
+3. Container deployed via the workflow, healthcheck green — **done 2026-09-27**;
+   audio under load still to be judged by the owner.
+4. Tunnel connected, `store.furrycolombia.com` returns 200 — **done 2026-09-28**.
 5. First login.
 
 ## Related

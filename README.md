@@ -44,21 +44,14 @@ Tickets · merch · digital goods · services — six Next.js apps, one Supabase
 
 ## `00` — Status
 
-> [!WARNING]
-> **Production is offline while it moves hosts.** It last served traffic on
-> **2026-08-07**, when the GCP free trial ended and the VM holding the production
-> tunnel died with it. GCP is not coming back (paying anything is a hard stop).
+> [!NOTE]
+> **Production is live again as of 2026-09-28** at `store.furrycolombia.com`, served
+> from the RackNerd VPS through a Cloudflare Tunnel, on the restored production
+> database and the production Clerk instance. It was offline from **2026-08-07**
+> (GCP free trial ended) until then; GCP is not coming back.
 >
-> As of **2026-09-27** the replacement is mostly in place: the RackNerd VPS is
-> provisioned, the production database is restored and verified, and
-> `deploy-production.yml` builds and ships the image. Two dashboard steps still gate
-> the cutover — the Cloudflare tunnel token and the Clerk production instance.
->
-> **Everything else works.** Dev, staging, E2E, CI and the Supabase projects are all
-> live.
->
-> → [`docs/production-status.md`](docs/production-status.md) — where each piece
-> stands, the cutover order, and the two steps still open.
+> → [`docs/production-status.md`](docs/production-status.md) — how it is wired, the
+> secrets involved, and what remains (first login, first supervised E2E run).
 > → [`docs/infrastructure.md`](docs/infrastructure.md) — how the GCP environment was
 > built, kept as a blueprint.
 
