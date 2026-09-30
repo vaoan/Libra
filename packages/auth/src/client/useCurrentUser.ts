@@ -67,6 +67,13 @@ function delay(ms: number): Promise<void> {
  * tables — every former consumer of `useSupabaseAuth().user.id` needs the
  * local profile id instead, resolved the same way the server-side call
  * sites do: the `current_user_id()` RPC (see `getCurrentUserIdResult`).
+ *
+ * A signed-in Clerk session resolves to one of three outcomes, and consumers
+ * must keep them apart: a profile id (`isAuthenticated`), a lookup that
+ * failed (`hasProfileLookupError`), or a lookup that succeeded and found no
+ * linked profile (`needsProfileLink`). The last is a person whose sign-in
+ * never reached the auth callback that links profiles — they are signed in,
+ * and must be sent to link, not to log in again.
  */
 export function useCurrentUser(): UseCurrentUserReturn {
   const { isLoaded, isSignedIn, user: clerkUser } = useUser();
