@@ -44,6 +44,9 @@ describe("LoginPage", () => {
     vi.clearAllMocks();
     clearProfileLinkAttempt();
     mockUseAuth.mockReturnValue({ isLoaded: true, isSignedIn: false });
+    // clearAllMocks keeps return values, so a returnTo set by one test would
+    // otherwise leak into the next.
+    returnToParamMock.mockReturnValue(null);
     // @ts-expect-error -- jsdom's location.replace is not implemented; stub it per test
     delete globalThis.location;
     globalThis.location = { replace: vi.fn() } as unknown as Location;
