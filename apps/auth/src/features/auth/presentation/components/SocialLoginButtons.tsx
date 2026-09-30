@@ -10,6 +10,7 @@
 // OAuth flow needs. Verified by reading
 // node_modules/@clerk/react/dist/{index,legacy}.d.mts.
 import { useSignIn } from "@clerk/nextjs/legacy";
+import { buildProfileLinkUrl } from "auth/client";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
@@ -72,9 +73,7 @@ export function SocialLoginButtons() {
       // (404) — the first production login on 2026-09-28 did exactly that.
       // `appUrls.auth` (NEXT_PUBLIC_AUTH_URL, or the registry path `/auth`)
       // carries the base path in every environment.
-      const callbackUrl = returnTo
-        ? `${appUrls.auth}/${locale}/callback?next=${encodeURIComponent(returnTo)}`
-        : `${appUrls.auth}/${locale}/callback`;
+      const callbackUrl = buildProfileLinkUrl(appUrls.auth, locale, returnTo);
       await signIn.authenticateWithRedirect({
         strategy,
         redirectUrl: `${appUrls.auth}/${locale}/sso-callback`,

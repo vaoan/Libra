@@ -37,6 +37,14 @@ interface UseCurrentUserReturn {
    * state instead.
    */
   hasProfileLookupError: boolean;
+  /**
+   * True when Clerk reports a signed-in session and the lookup *succeeded*
+   * but no profile is linked to that identity. The person is signed in; the
+   * link was never made (see `buildProfileLinkUrl`). Consumers send them
+   * through the auth callback to link it — not to `/login`, which can only
+   * offer the sign-in they already completed.
+   */
+  needsProfileLink: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -130,6 +138,11 @@ export function useCurrentUser(): UseCurrentUserReturn {
     isAuthenticated: user !== null,
     isLoading,
     hasProfileLookupError: Boolean(isSignedIn) && hasProfileLookupError,
+    needsProfileLink:
+      Boolean(isSignedIn) &&
+      !isLoading &&
+      !hasProfileLookupError &&
+      profileId === null,
     signOut: () => clerkSignOut(),
   };
 }
