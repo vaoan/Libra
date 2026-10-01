@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+import { trackPendingUrlWrite } from "@/features/products/application/pendingUrlWrite";
 import { useAddToCart } from "@/shared/application/cart/useAddToCart";
 import type { Product } from "@/features/products/domain/types";
 import { ProductCard } from "@/features/products/presentation/components/ProductCard";
@@ -24,7 +25,10 @@ vi.mock("next-intl", () => ({
   useLocale: () => "en",
 }));
 
+const mockRouterPush = vi.fn();
+
 vi.mock("@/shared/infrastructure/i18n", () => ({
+  useRouter: () => ({ push: mockRouterPush }),
   Link: ({
     children,
     href,
@@ -192,6 +196,69 @@ describe("ProductCard", () => {
       "href",
       expect.stringContaining("/products/abc-123/"),
     );
+  });
+
+  it("lets the link navigate normally when no search write is pending", () => {
+    render(<ProductCard product={makeProduct({ id: "abc-123" })} />);
+
+    const wasNotPrevented = fireEvent.click(
+      screen.getByTestId("product-card-link"),
+    );
+
+    expect(wasNotPrevented).toBe(true);
+    expect(mockRouterPush).not.toHaveBeenCalled();
+  });
+
+  // A search URL write that lands while this navigation is in flight makes
+  // Next discard the navigation (production E2E, 2026-10-01: the click
+  // happened, the page never left the catalog). Waiting for the write first
+  // puts the navigation after it, where it wins.
+  it("navigates only after a pending search write has landed", async () => {
+    let finishWrite!: () => void;
+    trackPendingUrlWrite(
+      new Promise<void>((resolve) => {
+        finishWrite = resolve;
+      }),
+    );
+    render(
+      <ProductCard product={makeProduct({ id: "abc-123", name_en: "Test" })} />,
+    );
+
+    const wasNotPrevented = fireEvent.click(
+      screen.getByTestId("product-card-link"),
+    );
+
+    expect(wasNotPrevented).toBe(false);
+    expect(mockRouterPush).not.toHaveBeenCalled();
+
+    finishWrite();
+
+    await vi.waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith(
+        expect.stringContaining("/products/abc-123/"),
+      ),
+    );
+  });
+
+  it("leaves modifier clicks to the browser even while a write is pending", async () => {
+    let finishWrite!: () => void;
+    const write = new Promise<void>((resolve) => {
+      finishWrite = resolve;
+    });
+    trackPendingUrlWrite(write);
+    render(<ProductCard product={makeProduct({ id: "abc-123" })} />);
+
+    const wasNotPrevented = fireEvent.click(
+      screen.getByTestId("product-card-link"),
+      { ctrlKey: true },
+    );
+
+    expect(wasNotPrevented).toBe(true);
+    expect(mockRouterPush).not.toHaveBeenCalled();
+
+    // Settle it so the next test starts with nothing pending.
+    finishWrite();
+    await write;
   });
 
   it("sets data-product-id attribute", () => {

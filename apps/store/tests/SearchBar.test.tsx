@@ -1,13 +1,22 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+import { getPendingUrlWrite } from "@/features/products/application/pendingUrlWrite";
 import { SearchBar } from "@/features/products/presentation/components/SearchBar";
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockSetQuery = vi.fn();
+// nuqs's setter resolves once the URL has actually been written. That is
+// later than the call: its queue flushes on a timer, never synchronously.
+let resolveUrlWrite: () => void = () => {};
+const mockSetQuery = vi.fn(
+  () =>
+    new Promise<void>((resolve) => {
+      resolveUrlWrite = resolve;
+    }),
+);
 let mockQuery = "";
 
 vi.mock("next-intl", () => ({
@@ -134,6 +143,41 @@ describe("SearchBar", () => {
     // The debounce timer must not fire a second, duplicate write.
     vi.advanceTimersByTime(300);
     expect(mockSetQuery).toHaveBeenCalledTimes(1);
+  });
+
+  // Flushing on blur is not enough on its own: nuqs applies the write on a
+  // timer after the call, so a click right behind the blur still started its
+  // navigation first (production E2E, 2026-10-01). The write is tracked so a
+  // product card can wait for it instead of racing it.
+  it("tracks the blur-flushed write as pending until the URL is written", async () => {
+    render(<SearchBar />);
+    const input = screen.getByTestId("search-bar-input");
+
+    fireEvent.change(input, { target: { value: "alpha" } });
+    fireEvent.blur(input);
+
+    const pending = getPendingUrlWrite();
+    expect(pending).not.toBeNull();
+
+    resolveUrlWrite();
+    await pending;
+    expect(getPendingUrlWrite()).toBeNull();
+  });
+
+  it("tracks the debounced write as pending too", async () => {
+    render(<SearchBar />);
+    fireEvent.change(screen.getByTestId("search-bar-input"), {
+      target: { value: "beta" },
+    });
+
+    vi.advanceTimersByTime(300);
+
+    const pending = getPendingUrlWrite();
+    expect(pending).not.toBeNull();
+
+    resolveUrlWrite();
+    await pending;
+    expect(getPendingUrlWrite()).toBeNull();
   });
 
   it("does not write the URL on blur when nothing is pending", () => {

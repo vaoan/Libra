@@ -6,6 +6,7 @@ import { useQueryState } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { tid } from "shared";
 
+import { trackPendingUrlWrite } from "@/features/products/application/pendingUrlWrite";
 import { catalogSearchParams } from "@/features/products/domain/searchParams";
 
 const DEBOUNCE_MS = 300;
@@ -34,9 +35,14 @@ export function SearchBar() {
     };
   }, []);
 
+  // nuqs applies the write later, on its own timer; tracking it lets a
+  // product card wait for it instead of having its navigation discarded by
+  // it (see pendingUrlWrite).
   const commitQuery = useCallback(
     (value: string) => {
-      void setQuery(value === "" ? null : value, { history: "replace" });
+      trackPendingUrlWrite(
+        setQuery(value === "" ? null : value, { history: "replace" }),
+      );
     },
     [setQuery],
   );
@@ -59,10 +65,9 @@ export function SearchBar() {
 
   // Flush a pending debounced write when focus leaves the input. Clicking
   // anywhere else (a product card) blurs the input before the click event, so
-  // the URL write lands before the Link navigation starts. Left to the timer,
-  // the write could land while that navigation is in flight: Next turns a
-  // userland history.replaceState into an ACTION_RESTORE, and a restore
-  // discards any pending navigation -- the page silently stays on the catalog.
+  // the write is requested -- and tracked -- before the Link navigation
+  // starts. nuqs still applies it a moment later, which is why the card waits
+  // for the tracked write rather than relying on this ordering alone.
   const handleBlur = useCallback(() => {
     if (timerRef.current === null) return;
     clearTimeout(timerRef.current);
