@@ -2,6 +2,7 @@
 
 import { ShoppingCart } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import type { MouseEvent } from "react";
 import { formatPrice, i18nField, slugify, tid } from "shared";
 import { cn } from "ui";
 
@@ -9,6 +10,7 @@ import { ProductBadges } from "./ProductBadges";
 import { ProductCardImage } from "./ProductCardImage";
 import { ProductCardMeta } from "./ProductCardMeta";
 
+import { getPendingUrlWrite } from "@/features/products/application/pendingUrlWrite";
 import {
   isProductAvailable,
   type Product,
@@ -18,7 +20,7 @@ import {
   getCategoryColor,
   getCategoryTheme,
 } from "@/shared/domain/categoryConstants";
-import { Link } from "@/shared/infrastructure/i18n";
+import { Link, useRouter } from "@/shared/infrastructure/i18n";
 
 type ProductCardVariant = "default" | "featured";
 
@@ -35,6 +37,7 @@ export function ProductCard({
   const tCategories = useTranslations("categories");
   const tTypes = useTranslations("productTypes");
   const locale = useLocale();
+  const router = useRouter();
   const { isAdded, quantityInCart, hasReachedStockLimit, handleAddToCart } =
     useAddToCart(product);
 
@@ -47,6 +50,24 @@ export function ProductCard({
   const inCartLabel = t("inCart", { count: quantityInCart });
   const name = i18nField(product, "name", locale);
   const description = i18nField(product, "description", locale);
+  const href = `/products/${product.id}/${slugify(name)}`;
+
+  // A search URL write still in flight would discard this navigation when it
+  // lands (see pendingUrlWrite), so wait for it and navigate afterwards.
+  // Modifier and non-primary clicks open a new tab; the browser handles those.
+  const handleLinkClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    const pendingWrite = getPendingUrlWrite();
+    const isModifiedClick =
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey;
+    if (pendingWrite === null || isModifiedClick) return;
+
+    event.preventDefault();
+    pendingWrite.then(() => router.push(href));
+  };
 
   return (
     <article
@@ -59,7 +80,8 @@ export function ProductCard({
       data-variant={variant}
     >
       <Link
-        href={`/products/${product.id}/${slugify(name)}`}
+        href={href}
+        onClick={handleLinkClick}
         className={cn(
           "flex flex-1 no-underline text-foreground",
           isFeatured ? "flex-col sm:flex-row" : "flex-col",
