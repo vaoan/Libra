@@ -63,9 +63,16 @@ test.describe.serial("Profile self-healing", () => {
   }) => {
     await injectSession(context, user);
 
+    // Record only from the moment the store loads. injectSession leaves the
+    // page on the auth login page, where Clerk can still navigate after
+    // sign-in; CI recorded that bare /login as a detour the store never made.
     const visited: string[] = [];
+    let hasReachedStore = false;
     page.on("framenavigated", (frame) => {
-      if (frame === page.mainFrame()) visited.push(frame.url());
+      if (frame !== page.mainFrame()) return;
+      const url = frame.url();
+      if (url.startsWith(APP_URLS.STORE)) hasReachedStore = true;
+      if (hasReachedStore) visited.push(url);
     });
 
     await page.goto(`${APP_URLS.STORE}/en`);
