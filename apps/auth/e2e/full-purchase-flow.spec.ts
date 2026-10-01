@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures/autoCleanup";
 
 import { cleanupTestData } from "./helpers/cleanup";
 import { dragAndDrop } from "./helpers/drag";

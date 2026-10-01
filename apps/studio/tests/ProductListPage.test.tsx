@@ -3,7 +3,13 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
+  useLocale: () => "es",
 }));
+
+vi.mock("@/shared/infrastructure/config", async () => {
+  const { mockStudioConfig } = await import("@/test/fixtures/appUrls");
+  return mockStudioConfig;
+});
 
 vi.mock("shared", () => ({
   tid: (id: string) => ({ "data-testid": id }),
@@ -32,6 +38,20 @@ vi.mock("next/link", () => ({
     children: React.ReactNode;
     href: string;
   }) => <a href={href}>{children}</a>,
+}));
+
+// The locale-aware Link (next-intl): a locale-less next/link href relies on
+// the middleware's 307 to add the locale, and under production latency that
+// redirect raced the client navigation and bounced the seller back to the
+// list (production E2E run e2e-20260928-0136-b561). Rendering it with a
+// marker lets the test prove the component uses this one.
+vi.mock("@/shared/infrastructure/i18n", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Link: ({ children, href, ...props }: any) => (
+    <a href={href} data-i18n-link="true" {...props}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock("ui", () => ({
@@ -68,9 +88,10 @@ vi.mock(
   }),
 );
 
+let mockPendingCount = 0;
 vi.mock("@/features/orders/application/hooks/usePendingOrderCount", () => ({
   usePendingOrderCount: () => ({
-    data: 0,
+    data: mockPendingCount,
   }),
 }));
 
@@ -87,6 +108,7 @@ import { ProductListPage } from "@/shared/presentation/pages/ProductListPage";
 describe("ProductListPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPendingCount = 0;
     mockHasPermission.mockImplementation((permission: string) =>
       [
         "products.read",
@@ -115,5 +137,24 @@ describe("ProductListPage", () => {
   it("renders add product button", () => {
     render(<ProductListPage />);
     expect(screen.getByTestId("new-product-button")).toBeInTheDocument();
+  });
+
+  it("links to the new-product page with the locale-aware Link", () => {
+    mockHasPermission.mockReturnValue(true);
+    render(<ProductListPage />);
+    const anchor = screen.getByRole("link", { name: /products\.newProduct/ });
+    expect(anchor).toHaveAttribute("data-i18n-link", "true");
+    expect(anchor).toHaveAttribute("href", "/products/new");
+  });
+
+  // Studio has no orders route: the seller's received orders live in the
+  // payments app, at /sales. A studio-relative "/orders" was a 404 in
+  // production (store.furrycolombia.com/studio/es/orders).
+  it("sends the pending-orders badge to the payments sales page in the current locale", () => {
+    mockPendingCount = 3;
+    render(<ProductListPage />);
+    const badge = screen.getByTestId("pending-orders-badge");
+    expect(badge).toHaveAttribute("href", "http://localhost:5005/es/sales");
+    expect(badge).not.toHaveAttribute("data-i18n-link");
   });
 });

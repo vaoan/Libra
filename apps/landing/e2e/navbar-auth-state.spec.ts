@@ -17,7 +17,6 @@ test.describe("Landing navbar auth state", () => {
     await expect(page.getByTestId("nav-link-landing")).toBeVisible();
     await expect(page.getByTestId("nav-link-store")).toBeVisible();
     await expect(page.getByTestId("nav-link-auth")).toBeVisible();
-    await expect(page.getByTestId("nav-link-playground")).toHaveCount(0);
     await expect(page.getByTestId("nav-link-admin")).toHaveCount(0);
     await expect(page.getByTestId("nav-link-studio")).toHaveCount(0);
     await expect(page.getByTestId("nav-link-payments")).toHaveCount(0);

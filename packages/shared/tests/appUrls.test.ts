@@ -1,15 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const EXPECTED_DEV_URLS = {
-  landing: "http://localhost:5004",
-  store: "http://localhost:5001",
-  studio: "http://localhost:5006",
-  payments: "http://localhost:5005",
-  admin: "http://localhost:5002",
-  auth: "http://localhost:5000",
-  playground: "http://localhost:5003",
-} as const;
-
 const EXPECTED_PROD_PATHS = {
   landing: "/",
   store: "/store",
@@ -17,7 +7,6 @@ const EXPECTED_PROD_PATHS = {
   payments: "/payments",
   admin: "/admin",
   auth: "/auth",
-  playground: "/playground",
 } as const;
 
 /** Clear all app-URL env vars so the module falls back to defaults. */
@@ -28,7 +17,6 @@ function clearAppUrlEnvVars() {
   vi.stubEnv("NEXT_PUBLIC_PAYMENTS_URL", "");
   vi.stubEnv("NEXT_PUBLIC_ADMIN_URL", "");
   vi.stubEnv("NEXT_PUBLIC_AUTH_URL", "");
-  vi.stubEnv("NEXT_PUBLIC_PLAYGROUND_URL", "");
 }
 
 async function importFreshAppUrls() {
@@ -42,12 +30,12 @@ afterEach(() => {
 });
 
 describe("appUrls", () => {
-  it("uses local app URLs by default in development", async () => {
+  it("falls back to relative same-origin paths in development too", async () => {
     vi.stubEnv("NODE_ENV", "development");
     clearAppUrlEnvVars();
 
     const { appUrls } = await importFreshAppUrls();
-    expect(appUrls).toEqual(EXPECTED_DEV_URLS);
+    expect(appUrls).toEqual(EXPECTED_PROD_PATHS);
   });
 
   it("uses relative same-domain paths by default in production", async () => {
@@ -95,5 +83,17 @@ describe("appUrls", () => {
     const { appUrls } = await importFreshAppUrls();
     // Legacy vars are ignored; output falls back to relative paths
     expect(appUrls).toEqual(EXPECTED_PROD_PATHS);
+  });
+});
+
+describe("appHref", () => {
+  it("joins an app URL and a path without a double slash, even for the landing root", async () => {
+    clearAppUrlEnvVars();
+    const { appHref, appUrls } = await importFreshAppUrls();
+    expect(appHref(appUrls.landing, "/en/legal/terms")).toBe("/en/legal/terms");
+    expect(appHref(appUrls.auth, "/en/login")).toBe("/auth/en/login");
+    expect(appHref("https://store.example.com/auth/", "/en/login")).toBe(
+      "https://store.example.com/auth/en/login",
+    );
   });
 });

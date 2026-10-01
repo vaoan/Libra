@@ -148,9 +148,6 @@ target, so the gap can only close:
 | `packages/api`    |         81 |       78 |        71 |    86 |
 | `packages/shared` |         87 |       78 |        92 |    90 |
 
-`apps/playground` has no thresholds at all — it is a sandbox and runs with
-`passWithNoTests`.
-
 Pinning to measured coverage rather than to the target cuts both ways: it is
 below 85 where coverage is, and **above** 85 where coverage is better, so the
 slack cannot be spent without the gate noticing.
@@ -281,7 +278,6 @@ When checking coverage, verify each workspace individually:
 | `apps/studio`     | `pnpm --filter studio test:coverage`   | 85%       |
 | `apps/payments`   | `pnpm --filter payments test:coverage` | 85%       |
 | `apps/landing`    | N/A (passWithNoTests)                  | —         |
-| `apps/playground` | N/A (passWithNoTests)                  | —         |
 | `packages/shared` | Part of `pnpm test:coverage`           | 85%       |
 | `packages/ui`     | Part of `pnpm test:coverage`           | 85%       |
 

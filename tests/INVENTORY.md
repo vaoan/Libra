@@ -6,12 +6,12 @@ Every test case in the repo, so a refactor can be checked for losses:
 regenerate and diff. Counting files or totals is not enough -- a rework
 can keep both and still drop the one assertion that mattered.
 
-**2749 cases across 379 files** (0 skipped, 9 parameterised).
+**2790 cases across 388 files** (0 skipped, 10 parameterised).
 
 Source-level cases: a `.each` case is one entry here and many in vitest
 output, so this total is deliberately not the runner total.
 
-## app:admin -- 562 cases
+## app:admin -- 567 cases
 
 ### `apps/admin/tests/ActivityRow.test.tsx`
 
@@ -287,6 +287,14 @@ output, so this total is deliberately not the runner total.
 - ProductName > renders the English name when locale is en
 - ProductName > renders the Spanish name when locale is es
 - ProductName > renders the English name for any non-es locale
+
+### `apps/admin/tests/receiptSignedUrls.test.ts`
+
+- signReceiptPaths > signs every path in one bulk request against the internal host
+- signReceiptPaths > maps an unsafe or missing path to null without asking storage for it
+- signReceiptPaths > returns null for a path storage reports an error on, and for all when the call fails
+- signReceiptPaths > makes no request when there is nothing to sign
+- signReceiptPaths > splits a large batch into chunks of at most 100 paths
 
 ### `apps/admin/tests/recentActivityQueries.test.ts`
 
@@ -800,7 +808,7 @@ output, so this total is deliberately not the runner total.
 - useUsers > calls listUsers with correct parameters and returns data
 - useUsers > handles empty responses correctly
 
-## app:auth -- 85 cases
+## app:auth -- 119 cases
 
 ### `apps/auth/tests/AccountSettingsPage.test.tsx`
 
@@ -812,9 +820,43 @@ output, so this total is deliberately not the runner total.
 - AccountSettingsPage > renders page title
 - AccountSettingsPage > calls signOut when sign out button is clicked
 
+### `apps/auth/tests/autoCleanup.test.ts`
+
+- test user registry > registry accumulates and drains
+- test user registry > drain continues past a failing deletion
+- test user registry > drains a profile-less entry via the Clerk-only fallback
+
+### `apps/auth/tests/clerk-test-email-convention.test.ts`
+
+- assertNotProductionClerk > throws on a live secret key
+- assertNotProductionClerk > allows a test secret key
+- createTestUser's real template carries +clerk_test
+
+### `apps/auth/tests/clerkSession.test.ts`
+
+- mintProductionSessionToken > refuses a development key before any request
+- mintProductionSessionToken > uses a sign-in token redeemed through the Frontend API on a live key
+- mintProductionSessionToken > refuses a live key without a domain before any request
+- mintProductionSessionToken > throws, never exits, when the sign-in does not create a session
+
 ### `apps/auth/tests/constants.test.ts`
 
 - account domain constants > defines PROFILE_QUERY_KEY
+
+### `apps/auth/tests/createTestUserOrdering.test.ts`
+
+- createTestUser registration ordering > registers the Clerk user before the profile RPC can throw
+
+### `apps/auth/tests/createTestUserRunId.test.ts`
+
+- createTestUser inside a production run > stamps the run id into the email and registers both halves of the user
+
+### `apps/auth/tests/guardEnv.test.ts`
+
+- assertNotProductionClerk > lets a development key through with no context
+- assertNotProductionClerk > refuses a live key with no context, as before
+- assertNotProductionClerk > admits a live key when env, ack and host all agree
+- *(parameterised)* assertNotProductionClerk > refuses a live key when %s
 
 ### `apps/auth/tests/LoginPage.test.tsx`
 
@@ -863,6 +905,14 @@ output, so this total is deliberately not the runner total.
 - updateProfile > returns updated profile
 - updateProfile > throws on error
 
+### `apps/auth/tests/receiptDownload.test.ts`
+
+- downloadReceipt > returns the bytes and content type on the first try
+- downloadReceipt > retries a 5xx with a pause and returns the eventual answer
+- downloadReceipt > does not retry a 4xx: that is our bug, not the provider's
+- downloadReceipt > gives up after the last attempt, naming the provider and hiding the token
+- downloadReceipt > sha256Hex matches node's digest
+
 ### `apps/auth/tests/route.test.ts`
 
 - *(parameterised)* [locale]/callback GET > redirects to the safe return URL when the profile is %s
@@ -876,6 +926,19 @@ output, so this total is deliberately not the runner total.
 - [locale]/callback GET > redirects to login when Clerk has no session for this request
 - [locale]/callback GET > renders a generic error instead of crashing when resolveProfile throws
 
+### `apps/auth/tests/runRegistry.test.ts`
+
+- runRegistry > is a no-op without E2E_RUN_ID
+- runRegistry > posts one e2e_run_rows row per registration with the run id
+- runRegistry > records a failure instead of throwing into the test
+- runRegistry > lets a test swap the registrar
+- runRegistry > appends each failure to E2E_RUN_FAILURES_FILE so the runner can read it
+- runRegistry > ensureRunRegistered throws when e2e_runs has no row for the run id
+- runRegistry > ensureRunRegistered passes once, then caches
+- runRegistry > ensureRunRegistered is a no-op without a run id
+- runRegistry > runScopedEmail keeps the local part within 64 characters inside a run, run id last
+- runRegistry > runScopedEmail without a label still carries the run id
+
 ### `apps/auth/tests/SocialIcons.test.tsx`
 
 - Social Icons > DiscordIcon renders an SVG
@@ -883,13 +946,13 @@ output, so this total is deliberately not the runner total.
 
 ### `apps/auth/tests/SocialLoginButtons.test.tsx`
 
-- SocialLoginButtons > renders the available provider buttons
-- SocialLoginButtons > starts a Google sign-in through Clerk
-- SocialLoginButtons > starts a Discord sign-in through Clerk
-- SocialLoginButtons > points the OAuth flow at the sso-callback page and the final callback route, with no guessed `next` when returnTo is absent
-- SocialLoginButtons > passes an explicit returnTo through as `next` unchanged
-- SocialLoginButtons > logs and shows a visible error when authenticateWithRedirect rejects
-- SocialLoginButtons > does nothing when Clerk has not finished loading yet
+- renders the available provider buttons
+- starts a Google sign-in through Clerk
+- starts a Discord sign-in through Clerk
+- points the OAuth flow at the sso-callback page and the final callback route, with no guessed `next` when returnTo is absent
+- passes an explicit returnTo through as `next` unchanged
+- logs and shows a visible error when authenticateWithRedirect rejects
+- does nothing when Clerk has not finished loading yet
 
 ### `apps/auth/tests/types.test.ts`
 
@@ -931,6 +994,12 @@ output, so this total is deliberately not the runner total.
 ### `apps/auth/tests/useUpdateProfile.test.tsx`
 
 - useUpdateProfile > calls updateProfile on mutate
+
+### `apps/auth/tests/waitForClerkToSettle.test.ts`
+
+- waitForClerkToSettle > waits for window.Clerk.loaded on an app page
+- waitForClerkToSettle > does nothing on a blank page
+- waitForClerkToSettle > never throws when Clerk does not load in time
 
 ## app:landing -- 16 cases
 
@@ -1011,9 +1080,8 @@ output, so this total is deliberately not the runner total.
 - readCartFromCookie > returns the memoized snapshot when the raw cookie value has not changed
 - clearCartCookie > deletes the cart cookie with path /
 - clearCartCookie > notifies listeners after clearing the cart cookie
-- clearCartCookie > includes shared domain when hostname has multiple parts
-- clearCartCookie > omits domain when hostname has fewer than two parts
-- clearCartCookie > skips domain computation and does not dispatch event when window is undefined
+- clearCartCookie > never sets a domain attribute, even on a multi-segment hostname
+- clearCartCookie > still clears the cookie when window is undefined
 - subscribeToCartCookie > returns a callable no-op when window is not available
 - subscribeToCartCookie > does not call onStoreChange when visibilityState is not visible
 
@@ -1322,6 +1390,7 @@ output, so this total is deliberately not the runner total.
 - PaymentMethodsPage > shows delete button for each method when canDelete
 - PaymentMethodsPage > shows active toggle for each method when canUpdate
 - PaymentMethodsPage > add button stays visible alongside the list
+- PaymentMethodsPage > keeps the add button disabled until the current user is known
 
 ### `apps/payments/tests/PaymentMethodTable.test.tsx`
 
@@ -1771,7 +1840,7 @@ output, so this total is deliberately not the runner total.
 - toYouTubeEmbedUrl > handles embed URL with http scheme
 - toYouTubeEmbedUrl > handles video IDs with hyphens and underscores
 
-## app:store -- 331 cases
+## app:store -- 332 cases
 
 ### `apps/store/tests/AccordionItem.test.tsx`
 
@@ -1845,16 +1914,14 @@ output, so this total is deliberately not the runner total.
 
 - COOKIE_MAX_AGE_S > equals 30 days in seconds
 - getCartCookieOptions — server-side (no window) > returns secure: false and no domain when window is undefined
-- getCartCookieOptions — browser (with window) > returns secure: true on https and includes domain when resolveSharedCookieDomain returns one
+- getCartCookieOptions — browser (with window) > returns secure: true on https
 - getCartCookieOptions — browser (with window) > returns secure: false on http
-- getCartCookieOptions — browser (with window) > omits domain when getSharedCookieDomain returns undefined
+- getCartCookieOptions — browser (with window) > never sets a domain, even on a multi-segment hostname
 - persistCartCookie > calls setCookie with serialized cart items
-- persistCartCookie > calls deleteCookie first when domain is set (to clear root-path cookie)
-- persistCartCookie > does not call deleteCookie when domain is not set
+- persistCartCookie > never deletes before setting, on any hostname
 - persistCartCookie > includes maxAge in setCookie options
 - removeCartCookie > calls deleteCookie with cookie options
-- removeCartCookie > calls deleteCookie twice when domain is set (once with domain, once root path)
-- removeCartCookie > calls deleteCookie only once when no domain
+- removeCartCookie > deletes exactly once with host-only options, on any hostname
 
 ### `apps/store/tests/CartDrawer.items.test.tsx`
 
@@ -1998,6 +2065,7 @@ output, so this total is deliberately not the runner total.
 - ImageGallery > renders main image when images exist
 - ImageGallery > renders thumbnails for multiple images
 - ImageGallery > does not render thumbnails for single image
+- ImageGallery > labels thumbnails and the main image when an image's alt is empty
 - ImageGallery > changes active image when thumbnail is clicked
 - ImageGallery > handles object-format images
 - ImageGallery > renders featured ribbon on images when featured
@@ -2156,6 +2224,8 @@ output, so this total is deliberately not the runner total.
 - SearchBar > sets query to null for empty string after typing
 - SearchBar > initialises with null query treated as empty string
 - SearchBar > syncs local value when external query changes
+- SearchBar > flushes the pending debounced search to the URL when the input loses focus
+- SearchBar > does not write the URL on blur when nothing is pending
 
 ### `apps/store/tests/SectionRenderer.test.tsx`
 
@@ -2248,7 +2318,7 @@ output, so this total is deliberately not the runner total.
 - useStoreProducts > sets isError when fetchStoreProducts rejects
 - useStoreProduct > fetches a single product by id
 
-## app:studio -- 416 cases
+## app:studio -- 415 cases
 
 ### `apps/studio/tests/AddDelegateForm.test.tsx`
 
@@ -2265,6 +2335,7 @@ output, so this total is deliberately not the runner total.
 - AddDelegateForm > does not submit when no permissions are checked
 - AddDelegateForm > clears form after successful submission
 - AddDelegateForm > toggles permission off after toggling on
+- AddDelegateForm > runs the search once the current user resolves after typing
 
 ### `apps/studio/tests/AutoTextarea.test.tsx`
 
@@ -2540,14 +2611,6 @@ output, so this total is deliberately not the runner total.
 - fetchPendingOrderCount > returns 0 when count is null
 - fetchPendingOrderCount > queries the correct table and filters
 
-### `apps/studio/tests/PendingOrdersBadge.test.tsx`
-
-- PendingOrdersBadge > returns null when count is 0
-- PendingOrdersBadge > returns null when count is undefined
-- PendingOrdersBadge > renders badge with count
-- PendingOrdersBadge > renders link to received orders page
-- PendingOrdersBadge > renders the translated pending orders text
-
 ### `apps/studio/tests/PriceInput.test.tsx`
 
 - PriceInput > renders with the given value
@@ -2578,6 +2641,7 @@ output, so this total is deliberately not the runner total.
 - ProductFilters > clicking type pill updates params
 - ProductFilters > clicking category pill updates params
 - ProductFilters > search input debounces and updates params
+- ProductFilters > does not write the URL on mount when the search box already matches it
 
 ### `apps/studio/tests/ProductFormPage.test.tsx`
 
@@ -2587,10 +2651,12 @@ output, so this total is deliberately not the runner total.
 
 ### `apps/studio/tests/ProductListPage.test.tsx`
 
-- ProductListPage > renders page with title
-- ProductListPage > renders product filters
-- ProductListPage > renders product table
-- ProductListPage > renders add product button
+- renders page with title
+- renders product filters
+- renders product table
+- renders add product button
+- links to the new-product page with the locale-aware Link
+- sends the pending-orders badge to the payments sales page in the current locale
 
 ### `apps/studio/tests/productMutations.test.ts`
 
@@ -2834,7 +2900,15 @@ output, so this total is deliberately not the runner total.
 - createProductFormSchema — section item validation > accepts a section item with only title_es set
 - createProductFormSchema — section item validation > accepts a section item with only title_en set
 
-## db -- 10 cases
+## db -- 15 cases
+
+### `tests/db/e2e-registry.test.ts`
+
+- e2e run registry > exists with the expected columns
+- e2e run registry > denies anon and authenticated on both tables
+- e2e run registry > refuses a row without a run
+- e2e run registry > refuses deleting a run that still owns rows
+- e2e run registry > rejects an unknown status
 
 ### `tests/db/exposure-invariants.test.ts`
 
@@ -3239,7 +3313,7 @@ output, so this total is deliberately not the runner total.
 - tid > handles options object with all properties
 - tid > returns empty object for options in production
 
-## package:auth -- 94 cases
+## package:auth -- 92 cases
 
 ### `packages/auth/tests/client/permCachePersistence.test.ts`
 
@@ -3250,11 +3324,9 @@ output, so this total is deliberately not the runner total.
 - readPermCache > returns null when cookie holds a non-array JSON value
 - readPermCache > returns null when cookie holds an array with non-string items
 - writePermCache > calls setCookie with the key, JSON-stringified keys, and maxAge 3600
-- writePermCache > does NOT pre-delete when domain is undefined (localhost dev)
-- writePermCache > pre-deletes the no-domain cookie before setting when domain is present
+- writePermCache > never pre-deletes and never sets a domain, on any hostname
 - writePermCache > does NOT call setCookie when serialised payload exceeds 3500 bytes
-- clearPermCache > calls deleteCookie once with base options when domain is undefined
-- clearPermCache > calls deleteCookie twice when domain is present (double-delete pattern)
+- clearPermCache > deletes exactly once with host-only options, on any hostname
 
 ### `packages/auth/tests/client/permissions.test.tsx`
 
@@ -3359,7 +3431,7 @@ output, so this total is deliberately not the runner total.
 - isTokenActive with standard JWT format > prefers internal token format over JWT when decodable
 - encodeAuthToken / decodeAuthToken roundtrip > roundtrips a valid payload
 
-## package:shared -- 199 cases
+## package:shared -- 198 cases
 
 ### `packages/shared/tests/api.test.ts`
 
@@ -3377,6 +3449,9 @@ output, so this total is deliberately not the runner total.
 - ApiAuthBootstrap > registers access token getter on mount
 - ApiAuthBootstrap > registers refresh token callback on mount
 - ApiAuthBootstrap > registers onUnauthorized callback on mount
+- ApiAuthBootstrap > onUnauthorized redirect (auth host lives under a path on the one origin) > keeps the auth host's path when it is an absolute URL
+- ApiAuthBootstrap > onUnauthorized redirect (auth host lives under a path on the one origin) > resolves a root-relative auth host against the current origin
+- ApiAuthBootstrap > onUnauthorized redirect (auth host lives under a path on the one origin) > tolerates a trailing slash on the auth host
 - ApiAuthBootstrap > cleans up callbacks on unmount
 
 ### `packages/shared/tests/appUrls.property.test.ts`
@@ -3387,11 +3462,12 @@ output, so this total is deliberately not the runner total.
 
 ### `packages/shared/tests/appUrls.test.ts`
 
-- appUrls > uses local app URLs by default in development
+- appUrls > falls back to relative same-origin paths in development too
 - appUrls > uses relative same-domain paths by default in production
 - appUrls > lets explicit NEXT_PUBLIC app URLs override the defaults
 - appUrls > uses NEXT_PUBLIC_*_URL values in production when set
 - appUrls > legacy SITE_PUBLIC_ORIGIN, E2E_PUBLIC_ORIGIN, and APP_PUBLIC_ORIGIN have no effect on output
+- appHref > joins an app URL and a path without a double slash, even for the landing root
 
 ### `packages/shared/tests/BuildVersion.test.tsx`
 
@@ -3402,14 +3478,6 @@ output, so this total is deliberately not the runner total.
 - BuildVersion > uses custom formatLabel when provided
 - BuildVersion > uses default label format when formatLabel is not provided
 - BuildVersion > handles short hash input
-
-### `packages/shared/tests/cookieDomain.test.ts`
-
-- getSharedCookieDomain > returns undefined for 'localhost'
-- getSharedCookieDomain > returns undefined for '127.0.0.1'
-- getSharedCookieDomain > returns undefined for a single-segment hostname
-- getSharedCookieDomain > returns '.example.com' for 'app.example.com'
-- getSharedCookieDomain > returns '.example.com' for 'sub1.sub2.example.com'
 
 ### `packages/shared/tests/environment.test.ts`
 

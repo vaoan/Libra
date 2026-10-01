@@ -21,11 +21,16 @@ const { getE2EExtraHTTPHeaders } = require(
 const appUrls = resolveE2EAppUrls();
 const extraHTTPHeaders = getE2EExtraHTTPHeaders();
 
+// Production runs (TARGET_ENV=prod) have zero tolerance for flakiness: no
+// retries, and a trace kept for every failed attempt, so a flake fails the run
+// and leaves evidence instead of a "flaky" badge and a screenshot.
+const isProductionTarget = process.env.TARGET_ENV === "prod";
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: isProductionTarget ? 0 : process.env.CI ? 2 : 0,
   maxFailures: process.env.CI ? 1 : 0,
   workers: 1,
   reporter: [["html", { open: "never" }], ["list"]],
@@ -33,7 +38,7 @@ export default defineConfig({
   use: {
     baseURL: appUrls.payments,
     extraHTTPHeaders,
-    trace: "on-first-retry",
+    trace: isProductionTarget ? "retain-on-failure" : "on-first-retry",
     screenshot: "only-on-failure",
     // Record a video per test when E2E_VIDEO is set (e.g. E2E_VIDEO=1). Off by
     // default so normal/CI runs stay fast. Videos land in test-results/<test>/video.webm.

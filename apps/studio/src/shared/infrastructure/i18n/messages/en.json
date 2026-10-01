@@ -14,8 +14,7 @@
     "studio": "Studio",
     "payments": "Payments",
     "admin": "Admin",
-    "auth": "Account",
-    "playground": "Playground"
+    "auth": "Account"
   },
   "auth": {
     "login": {

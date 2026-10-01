@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures/autoCleanup";
 
 import { cleanupTestData } from "./helpers/cleanup";
 import { APP_URLS, ELEMENT_TIMEOUT_MS } from "./helpers/constants";

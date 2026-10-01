@@ -1,11 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
 
+import { expect, test } from "./fixtures/autoCleanup";
 import { APP_URLS, ELEMENT_TIMEOUT_MS } from "./helpers/constants";
 import {
   SELLER_PERMISSIONS,
   createTestUser,
-  deleteTestUser,
   injectSession,
   type TestUser,
 } from "./helpers/session";
@@ -47,10 +46,6 @@ test.describe.serial("Studio accessibility", () => {
 
   test.beforeAll(async () => {
     seller = await createTestUser("studio-a11y", SELLER_PERMISSIONS);
-  });
-
-  test.afterAll(async () => {
-    await deleteTestUser(seller).catch(() => {});
   });
 
   test("the product list has no WCAG 2 AA violations", async ({

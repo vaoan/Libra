@@ -1,29 +1,26 @@
 # Infrastructure & Deployment Guide
 
-> ## ⛔ Decommissioned as of 2026-08-09 — nothing described below is running
+> ## ⚠ Blueprint of the GCP era — the host described below is gone
 >
-> **There is no production host.** GCP billing is switched off deliberately and
-> permanently (paying anything is a hard stop), so the VM at `35.238.125.109`
-> is gone and `store.furrycolombia.com` returns Cloudflare 530. The LAN box at
-> `192.168.2.71` that the fallback path used no longer exists either.
+> GCP billing is switched off deliberately and permanently, so the VM at
+> `35.238.125.109` no longer exists, and neither does the LAN fallback box at
+> `192.168.2.71`. Production is being re-established on the **RackNerd VPS
+> that runs the Spotify→Discord bridge**, as one Docker container behind a
+> dashboard-managed Cloudflare tunnel, deployed by
+> `.github/workflows/deploy-production.yml`. Every app is served from the one
+> origin `store.furrycolombia.com`, path-routed; there are no subdomains.
 >
-> The three deploy workflows — `deploy-gcp.yml`, `deploy-local.yml` and
-> `deploy-production.yml` — were deleted, because each pointed at one of those
-> two dead hosts and `deploy-gcp.yml` fired on every push to `main`, which would
-> have produced a failing deploy at the next release.
+> **For the current state, the new host, and what still gates the cutover,
+> see [production-status.md](./production-status.md).** The sections below
+> record how the GCP deployment was built. Read the GCP hostnames, IPs,
+> `deploy-gcp.yml`, `deploy-local.yml`, the webhook receiver, PM2 and Hestia as
+> "what it was". Still current: the Docker image recipe (now
+> `docker/ci/Dockerfile`), the nginx path routing, the Supabase and Clerk
+> dashboard notes, and the operational Docker commands.
 >
-> **This document is kept as a blueprint, not a description of reality.** It
-> still records how the thing was built, which is what you would want when
-> standing something up again. Read every hostname, IP and container name here
-> as "what it was", not "what it is". The server-side files in
-> `scripts/server/` and `scripts/deploy-production.sh` are kept for the same
-> reason and are inert — nothing invokes them.
->
-> Deleted workflows are recoverable from git history.
->
-> **For the current state and how to bring production back, see
-> [production-status.md](./production-status.md)** — it records why it went
-> down, which domain is which, and the one credential still missing.
+> The old server-side files in `scripts/server/` (`webhook-deploy.mjs`,
+> `libra-nginx.conf`, the Hestia templates) are inert; the live ones are
+> `provision-racknerd.sh` and `audio-priority.sh`.
 
 > Everything needed to reproduce the production environment from scratch — whether migrating servers, recovering from failure, or moving to cloud.
 
@@ -65,9 +62,8 @@ GCP VM (libra-prod, us-central1-a, 35.238.125.109)
         │   ├─ /admin     → admin      :5002
         │   ├─ /auth      → auth       :5000
         │   ├─ /payments  → payments   :5005
-        │   ├─ /playground→ playground :5003
         │   └─ /studio    → studio     :5006
-        └─ supervisord (7 Next.js standalone servers)
+        └─ supervisord (6 Next.js standalone servers)
               │
               ▼
         Cloudflare Tunnel → store.furrycolombia.com (SSL)
@@ -142,7 +138,7 @@ Single-stage image based on `node:22-alpine`. Layer order is optimized for cache
 ```
 1. RUN apk add (nginx, supervisor, netcat)    — stable, rarely changes
 2. COPY nginx.conf, supervisord.conf,          — stable config files
-        watcher.mjs, boot-reporter.mjs         (placed BEFORE app layers)
+        boot-reporter.mjs, warmer.sh           (placed BEFORE app layers)
 3. COPY apps/*/standalone, static, public      — volatile (changes every deploy)
 4. RUN rm stub node_modules + chown           — always runs
 ```
@@ -194,7 +190,7 @@ Three environments with clear separation: dev (local), e2e (Docker + isolated Su
 
 | Env     | Apps                    | Supabase             | Port | Auth redirects                             |
 | ------- | ----------------------- | -------------------- | ---- | ------------------------------------------ |
-| dev     | Vite local (5000–5006)  | Local CLI (54321)    | —    | localhost:5000–5006                        |
+| dev     | `next dev` ×6 + proxy   | Local Docker (54331) | —    | localhost:5050 (one origin, by path)       |
 | e2e     | Docker container        | Isolated CLI (64321) | 8089 | localhost:8089                             |
 | staging | Docker container        | Docker Compose       | 8088 | https://store.ffxivbe.org (via Cloudflare) |
 | prod    | Docker on remote server | Supabase Cloud       | 9090 | https://store.furrycolombia.com            |
@@ -243,7 +239,9 @@ Environment files:
 | deploy.furrycolombia.com | Cloudflare tunnel → :9091 | Webhook deploy receiver         |
 | ssh.furrycolombia.com    | Cloudflare tunnel → :22   | SSH access (for GitHub Actions) |
 
-**⚠️ Only these 3 subdomains belong to this project. `furrycolombia.com` and `moonfest.furrycolombia.com` are separate sites. Never modify their DNS records.**
+**⚠️ `store.furrycolombia.com` is the only app hostname this project routes;
+all six apps live behind it by path.** `furrycolombia.com` and
+`moonfest.furrycolombia.com` are separate sites. Never modify their DNS records.
 
 ## Cloudflare Tunnel
 
@@ -299,7 +297,6 @@ NEXT_PUBLIC_AUTH_URL=https://store.furrycolombia.com/auth
 NEXT_PUBLIC_LANDING_URL=https://store.furrycolombia.com
 NEXT_PUBLIC_PAYMENTS_URL=https://store.furrycolombia.com/payments
 NEXT_PUBLIC_STUDIO_URL=https://store.furrycolombia.com/studio
-NEXT_PUBLIC_PLAYGROUND_URL=https://store.furrycolombia.com/playground
 NEXT_PUBLIC_API_PREFIX=/api
 NEXT_PUBLIC_ENABLE_MOCKS=false
 ```
@@ -350,24 +347,23 @@ Google credentials are also registered in Google Cloud Console with the Supabase
 
 ## GitHub Secrets
 
-| Secret                          | Value                                        |
-| ------------------------------- | -------------------------------------------- |
-| `PROD_SERVER_HOST`              | `ssh.furrycolombia.com`                      |
-| `PROD_SERVER_USER`              | `furrycolombia`                              |
-| `PROD_SERVER_SSH_KEY`           | ED25519 private key (full PEM)               |
-| `WEBHOOK_SECRET`                | HMAC secret shared with GitHub webhook       |
-| `NEXT_PUBLIC_STORE_URL`         | `https://store.furrycolombia.com/store`      |
-| `NEXT_PUBLIC_ADMIN_URL`         | `https://store.furrycolombia.com/admin`      |
-| `NEXT_PUBLIC_AUTH_HOST_URL`     | `https://store.furrycolombia.com/auth`       |
-| `NEXT_PUBLIC_AUTH_URL`          | `https://store.furrycolombia.com/auth`       |
-| `NEXT_PUBLIC_LANDING_URL`       | `https://store.furrycolombia.com`            |
-| `NEXT_PUBLIC_PAYMENTS_URL`      | `https://store.furrycolombia.com/payments`   |
-| `NEXT_PUBLIC_STUDIO_URL`        | `https://store.furrycolombia.com/studio`     |
-| `NEXT_PUBLIC_PLAYGROUND_URL`    | `https://store.furrycolombia.com/playground` |
-| `NEXT_PUBLIC_API_PREFIX`        | `/api`                                       |
-| `NEXT_PUBLIC_ENABLE_MOCKS`      | `false`                                      |
-| `NEXT_PUBLIC_SUPABASE_URL`      | `https://olafyajipvsltohagiah.supabase.co`   |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key                            |
+| Secret                          | Value                                      |
+| ------------------------------- | ------------------------------------------ |
+| `PROD_SERVER_HOST`              | `ssh.furrycolombia.com`                    |
+| `PROD_SERVER_USER`              | `furrycolombia`                            |
+| `PROD_SERVER_SSH_KEY`           | ED25519 private key (full PEM)             |
+| `WEBHOOK_SECRET`                | HMAC secret shared with GitHub webhook     |
+| `NEXT_PUBLIC_STORE_URL`         | `https://store.furrycolombia.com/store`    |
+| `NEXT_PUBLIC_ADMIN_URL`         | `https://store.furrycolombia.com/admin`    |
+| `NEXT_PUBLIC_AUTH_HOST_URL`     | `https://store.furrycolombia.com/auth`     |
+| `NEXT_PUBLIC_AUTH_URL`          | `https://store.furrycolombia.com/auth`     |
+| `NEXT_PUBLIC_LANDING_URL`       | `https://store.furrycolombia.com`          |
+| `NEXT_PUBLIC_PAYMENTS_URL`      | `https://store.furrycolombia.com/payments` |
+| `NEXT_PUBLIC_STUDIO_URL`        | `https://store.furrycolombia.com/studio`   |
+| `NEXT_PUBLIC_API_PREFIX`        | `/api`                                     |
+| `NEXT_PUBLIC_ENABLE_MOCKS`      | `false`                                    |
+| `NEXT_PUBLIC_SUPABASE_URL`      | `https://olafyajipvsltohagiah.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key                          |
 
 ## GitHub Webhook
 
@@ -514,7 +510,6 @@ NEXT_PUBLIC_AUTH_URL=https://store.furrycolombia.com/auth
 NEXT_PUBLIC_LANDING_URL=https://store.furrycolombia.com
 NEXT_PUBLIC_PAYMENTS_URL=https://store.furrycolombia.com/payments
 NEXT_PUBLIC_STUDIO_URL=https://store.furrycolombia.com/studio
-NEXT_PUBLIC_PLAYGROUND_URL=https://store.furrycolombia.com/playground
 NEXT_PUBLIC_API_PREFIX=/api
 NEXT_PUBLIC_ENABLE_MOCKS=false
 EOF

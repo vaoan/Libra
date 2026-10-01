@@ -1,5 +1,5 @@
 import type { BrowserContext } from "@playwright/test";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../../auth/e2e/fixtures/autoCleanup";
 
 import { cleanupTestData } from "../../auth/e2e/helpers/cleanup";
 import { APP_URLS, ELEMENT_TIMEOUT_MS } from "../../auth/e2e/helpers/constants";

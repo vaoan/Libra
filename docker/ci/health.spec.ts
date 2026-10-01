@@ -16,7 +16,6 @@ const routes = [
   { name: "admin", path: "/admin" },
   { name: "payments", path: "/payments" },
   { name: "studio", path: "/studio" },
-  { name: "playground", path: "/playground" },
 ];
 
 for (const { name, path } of routes) {

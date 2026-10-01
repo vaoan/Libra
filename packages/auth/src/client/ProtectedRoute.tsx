@@ -1,13 +1,19 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
+import {
+  buildProfileLinkUrl,
+  clearProfileLinkAttempt,
+  hasRecentProfileLinkAttempt,
+  markProfileLinkAttempt,
+} from "./profileLink";
 import { ProfileLookupErrorState } from "./ProfileLookupErrorState";
 import { useCurrentUser } from "./useCurrentUser";
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  /** Full URL to the auth app (e.g. "http://localhost:5000") */
+  /** Full URL to the auth app (e.g. "http://localhost:5050/auth") */
   authUrl: string;
   /** Current locale for the redirect URL */
   locale: string;
@@ -37,6 +43,13 @@ interface ProtectedRouteProps {
  * renders neither the protected content nor a blank fallback (which would
  * strand the person with no explanation and no way forward) — it shows an
  * error/retry surface instead, and never triggers the login redirect.
+ *
+ * `needsProfileLink` is the fourth: Clerk has a session and the lookup
+ * succeeded, but no profile is linked to it. Login cannot help — it offers
+ * the sign-in the person already completed — so they go through the auth
+ * callback, which links the profile and sends them back here. If that was
+ * already tried in the last minute and the link is still missing, redirecting
+ * again would loop, so the error state is shown instead.
  */
 export function ProtectedRoute({
   children,
@@ -44,35 +57,57 @@ export function ProtectedRoute({
   locale,
   fallback = null,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, hasProfileLookupError } =
-    useCurrentUser();
+  const {
+    isAuthenticated,
+    isLoading,
+    hasProfileLookupError,
+    needsProfileLink,
+  } = useCurrentUser();
   const hasRedirectedRef = useRef(false);
+  // Read once on mount, before this instance marks an attempt of its own.
+  const [hadRecentLinkAttempt] = useState(hasRecentProfileLinkAttempt);
+  const isProfileLinkStuck = needsProfileLink && hadRecentLinkAttempt;
 
   useEffect(() => {
     if (isAuthenticated || hasProfileLookupError) {
       hasRedirectedRef.current = false;
+      if (isAuthenticated) clearProfileLinkAttempt();
       return;
     }
 
-    if (
-      !isLoading &&
-      !isAuthenticated &&
-      !hasProfileLookupError &&
-      !hasRedirectedRef.current
-    ) {
-      hasRedirectedRef.current = true;
-      const returnTo = globalThis.location.href;
-      globalThis.location.replace(
-        `${authUrl}/${locale}/login?returnTo=${encodeURIComponent(returnTo)}`,
-      );
+    if (isLoading || isProfileLinkStuck || hasRedirectedRef.current) {
+      return;
     }
-  }, [isLoading, isAuthenticated, hasProfileLookupError, authUrl, locale]);
+
+    hasRedirectedRef.current = true;
+    const returnTo = globalThis.location.href;
+
+    if (needsProfileLink) {
+      markProfileLinkAttempt();
+      globalThis.location.replace(
+        buildProfileLinkUrl(authUrl, locale, returnTo),
+      );
+      return;
+    }
+
+    globalThis.location.replace(
+      `${authUrl}/${locale}/login?returnTo=${encodeURIComponent(returnTo)}`,
+    );
+  }, [
+    isLoading,
+    isAuthenticated,
+    hasProfileLookupError,
+    needsProfileLink,
+    isProfileLinkStuck,
+    authUrl,
+    locale,
+  ]);
 
   if (isLoading) {
     return <>{fallback}</>;
   }
 
-  if (hasProfileLookupError) {
+  if (hasProfileLookupError || isProfileLinkStuck) {
     return <ProfileLookupErrorState />;
   }
 

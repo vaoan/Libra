@@ -131,6 +131,32 @@ const ALLOWED_ENVS = [
   "ci",
 ];
 
+/**
+ * One value straight from the secrets file, for tooling that needs a secret
+ * no .env file references (the production E2E runner's SSH target).
+ * `undefined` when the file or the key is absent — never throws, so a CI
+ * runner without a secrets file degrades to "unset".
+ */
+export function readSecret(name) {
+  const value = readSecretsFile()[name];
+  return value === undefined || value === "" ? undefined : value;
+}
+
+/**
+ * Fill `env[name]` from the secrets file for every name that is unset and
+ * has a value. Assigning `undefined` to `process.env` stores the string
+ * "undefined", which then looks like a set path or host — so absent secrets
+ * are skipped, never assigned.
+ */
+export function fillFromSecrets(env, names, read = readSecret) {
+  for (const name of names) {
+    if (env[name] !== undefined && env[name] !== "") continue;
+    const value = read(name);
+    if (value !== undefined) env[name] = value;
+  }
+  return env;
+}
+
 export function loadEnv(targetEnv) {
   const env = targetEnv || process.env.TARGET_ENV || "dev";
   if (!ALLOWED_ENVS.includes(env)) {
@@ -195,7 +221,8 @@ export function loadEnv(targetEnv) {
   process.env.TARGET_ENV = env;
 
   // If ENV_DEBUG=true, serialize all resolved vars into a single NEXT_PUBLIC_ var
-  // so the playground can display them without needing turbo globalEnv entries.
+  // so admin's /en/env debug viewer can display them without needing turbo
+  // globalEnv entries.
   // Guard: never expose env vars in production builds.
   const isProduction =
     process.env.NODE_ENV === "production" ||

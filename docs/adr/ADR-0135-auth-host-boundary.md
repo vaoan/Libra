@@ -10,14 +10,14 @@ Accepted
 
 ## Context
 
-The monorepo contains multiple Next.js apps (`landing`, `auth`, `web`, `admin`, `playground`) that need a common authentication model. We need a mock implementation now, but the architecture must support migration to a production JWT access/refresh system without rewriting every app.
+The monorepo contains multiple Next.js apps (`landing`, `auth`, `web`, `admin`) that need a common authentication model. We need a mock implementation now, but the architecture must support migration to a production JWT access/refresh system without rewriting every app.
 
 ## Decision
 
 We establish an explicit **Auth Host** boundary:
 
 1. `auth` acts as the auth host and owns `/[locale]/login` plus auth routes (`/api/auth/login`, `/api/auth/logout`, `/api/auth/refresh`).
-2. Protected apps (`web`, `admin`, `playground`) do not own login UX. They only enforce session checks and redirect unauthenticated users to the auth host.
+2. Protected apps (`web`, `admin`) do not own login UX. They only enforce session checks and redirect unauthenticated users to the auth host.
 3. Shared auth contracts and token/session helpers live in `packages/auth`.
 4. Cross-app redirect configuration uses `NEXT_PUBLIC_AUTH_HOST_URL` for protected apps and `NEXT_PUBLIC_AUTH_URL` for landing-to-auth links.
 

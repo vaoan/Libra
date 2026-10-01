@@ -4,6 +4,16 @@ import path from "node:path";
 import { clerk, clerkSetup } from "@clerk/testing/playwright";
 import { expect, test as setup } from "@playwright/test";
 
+import {
+  assertNotProductionClerk,
+  productionGuardContext,
+} from "../../auth/e2e/helpers/guardEnv";
+import {
+  ensureRunRegistered,
+  registerRow,
+  runScopedEmail,
+} from "../../auth/e2e/helpers/runRegistry";
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { resolveE2EAppUrls } = require(
   path.resolve(__dirname, "../../../scripts/app-url-resolver.js"),
@@ -28,6 +38,7 @@ if (!CLERK_SECRET_KEY)
   throw new Error(
     "CLERK_SECRET_KEY is not set. Ensure the correct .env.* file is loaded.",
   );
+assertNotProductionClerk(CLERK_SECRET_KEY, productionGuardContext());
 
 const AUTH_FILE = "e2e/.auth/session.json";
 const USER_FILE = path.join(path.dirname(AUTH_FILE), "user.json");
@@ -41,7 +52,8 @@ setup("authenticate", async ({ page }) => {
 
   // A Clerk dev-instance test email (`+clerk_test` subaddress): no real inbox,
   // no verification email actually sent, unique per run.
-  const email = `e2e-${Date.now()}+clerk_test@example.com`;
+  await ensureRunRegistered();
+  const email = runScopedEmail();
 
   const { createClerkClient } = await import("@clerk/backend");
   const clerkClient = createClerkClient({ secretKey: CLERK_SECRET_KEY });
@@ -52,6 +64,7 @@ setup("authenticate", async ({ page }) => {
     emailAddress: [email],
     skipPasswordRequirement: true,
   });
+  await registerRow("clerk_users", clerkUser.id);
 
   // Any unprotected page that loads Clerk's client JS.
   await page.goto(`${AUTH_URL}/en/login`);
@@ -113,6 +126,7 @@ setup("authenticate", async ({ page }) => {
     throw new Error(
       `Failed to find the profile resolveProfile() should have created for ${clerkUser.id}: ${error?.message}`,
     );
+  await registerRow("user_profiles", profile.id);
 
   // Clerk's session cookie is set without an explicit cookie domain, so it is
   // shared across every app on `localhost` regardless of port — no manual
@@ -161,6 +175,7 @@ setup("authenticate", async ({ page }) => {
     .single();
   if (productError || !seededProduct)
     throw new Error(`Failed to seed the E2E product: ${productError?.message}`);
+  await registerRow("products", seededProduct.id);
 
   fs.writeFileSync(PRODUCT_FILE, JSON.stringify(seededProduct));
 

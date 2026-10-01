@@ -1,12 +1,10 @@
-import { expect, test } from "@playwright/test";
-
+import { expect, test } from "../../auth/e2e/fixtures/autoCleanup";
 import {
   SELLER_PERMISSIONS,
   SUPABASE_ANON_KEY,
   adminDelete,
   adminInsert,
   createTestUser,
-  deleteTestUser,
   type TestUser,
 } from "../../auth/e2e/helpers/session";
 
@@ -173,11 +171,6 @@ test.describe.serial("order_items_delegate_read RLS policy", () => {
     await adminDelete("products", `id=eq.${product1Id}`).catch(() => {});
     await adminDelete("products", `id=eq.${product2Id}`).catch(() => {});
     await adminDelete("products", `id=eq.${product3Id}`).catch(() => {});
-    await deleteTestUser(sellerUser).catch(() => {});
-    await deleteTestUser(delegateUser).catch(() => {});
-    await deleteTestUser(buyerUser).catch(() => {});
-    await deleteTestUser(outsiderUser).catch(() => {});
-    await deleteTestUser(seller2User).catch(() => {});
   });
 
   test("positive control: delegate can read the delegated product's line item", async () => {

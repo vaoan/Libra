@@ -1,1 +1,1 @@
-export { PendingOrdersBadge } from "./presentation/components/PendingOrdersBadge";
+export { usePendingOrderCount } from "./application/hooks/usePendingOrderCount";

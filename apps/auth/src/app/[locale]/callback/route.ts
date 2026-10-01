@@ -34,14 +34,13 @@ const ALLOWED_REDIRECT_ORIGINS = [
   process.env.NEXT_PUBLIC_ADMIN_URL,
   process.env.NEXT_PUBLIC_PAYMENTS_URL,
   process.env.NEXT_PUBLIC_STUDIO_URL,
-  process.env.NEXT_PUBLIC_PLAYGROUND_URL,
   process.env.NEXT_PUBLIC_LANDING_URL,
 ].filter((value): value is string => value !== undefined);
 
 /**
  * This app's own declared, trusted external URL (e.g.
- * `http://127.0.0.1:5050/auth` behind the Docker/CI nginx, `http://localhost:5000`
- * in local dev). Every absolute redirect below is built from this instead of
+ * `http://127.0.0.1:5050/auth` behind the Docker/CI nginx, `http://localhost:5050/auth`
+ * behind the dev proxy). Every absolute redirect below is built from this instead of
  * `new URL(request.url).origin`: behind nginx, Next.js's standalone server
  * constructs `request.url` from its own bind address (`HOSTNAME`/`PORT` in
  * `docker/prod/supervisord.conf` — `0.0.0.0:5000` for this app), not the

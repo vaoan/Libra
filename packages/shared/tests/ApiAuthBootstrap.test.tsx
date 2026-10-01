@@ -48,6 +48,54 @@ describe("ApiAuthBootstrap", () => {
     expect(setOnUnauthorized).toHaveBeenCalledWith(expect.any(Function));
   });
 
+  describe("onUnauthorized redirect (auth host lives under a path on the one origin)", () => {
+    function stubLocation(href: string) {
+      const url = new URL(href);
+      Object.defineProperty(globalThis, "location", {
+        configurable: true,
+        writable: true,
+        value: { href, origin: url.origin, protocol: url.protocol },
+      });
+    }
+
+    function fireUnauthorized(authHostUrl: string, locale?: string) {
+      render(<ApiAuthBootstrap authHostUrl={authHostUrl} locale={locale} />);
+      const onUnauthorized = vi.mocked(setOnUnauthorized).mock.calls[0]![0];
+      onUnauthorized!();
+      return globalThis.location.href;
+    }
+
+    it("keeps the auth host's path when it is an absolute URL", () => {
+      stubLocation("http://localhost:5050/store/en/cart");
+
+      const href = fireUnauthorized("http://localhost:5050/auth");
+
+      expect(href).toBe(
+        "http://localhost:5050/auth/en/login?returnTo=http%3A%2F%2Flocalhost%3A5050%2Fstore%2Fen%2Fcart",
+      );
+    });
+
+    it("resolves a root-relative auth host against the current origin", () => {
+      stubLocation("https://store.example.com/store/es/cart");
+
+      const href = fireUnauthorized("/auth", "es");
+
+      expect(href).toBe(
+        "https://store.example.com/auth/es/login?returnTo=https%3A%2F%2Fstore.example.com%2Fstore%2Fes%2Fcart",
+      );
+    });
+
+    it("tolerates a trailing slash on the auth host", () => {
+      stubLocation("http://localhost:5050/store/en");
+
+      const href = fireUnauthorized("http://localhost:5050/auth/");
+
+      expect(href.startsWith("http://localhost:5050/auth/en/login?")).toBe(
+        true,
+      );
+    });
+  });
+
   it("cleans up callbacks on unmount", () => {
     const { unmount } = render(
       <ApiAuthBootstrap authHostUrl="http://localhost:5000" />,

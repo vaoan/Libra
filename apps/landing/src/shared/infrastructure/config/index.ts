@@ -1,1 +1,1 @@
-export { appUrls } from "shared/config/appUrls";
+export { appHref, appUrls } from "shared/config/appUrls";

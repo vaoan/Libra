@@ -3,10 +3,12 @@
 import { useTranslations } from "next-intl";
 import { tid } from "shared";
 
-import { SocialLoginButtons } from "../components/SocialLoginButtons";
+import { useContinueExistingSession } from "@/features/auth/application/hooks/useContinueExistingSession";
+import { SocialLoginButtons } from "@/features/auth/presentation/components/SocialLoginButtons";
 
 export function LoginPage() {
   const t = useTranslations("auth.login");
+  useContinueExistingSession();
 
   return (
     <main className="flex flex-1 items-center justify-center surface-grid-dots p-4">

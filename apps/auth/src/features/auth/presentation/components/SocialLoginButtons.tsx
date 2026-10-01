@@ -10,6 +10,7 @@
 // OAuth flow needs. Verified by reading
 // node_modules/@clerk/react/dist/{index,legacy}.d.mts.
 import { useSignIn } from "@clerk/nextjs/legacy";
+import { buildProfileLinkUrl } from "auth/client";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
@@ -18,6 +19,8 @@ import { cn } from "ui";
 
 import { DiscordIcon } from "./DiscordIcon";
 import { GoogleIcon } from "./GoogleIcon";
+
+import { appUrls } from "@/shared/infrastructure/config";
 
 type Provider = "google" | "discord";
 
@@ -64,12 +67,16 @@ export function SocialLoginButtons() {
     setError(null);
 
     try {
-      const callbackUrl = returnTo
-        ? `/${locale}/callback?next=${encodeURIComponent(returnTo)}`
-        : `/${locale}/callback`;
+      // Clerk resolves these against the page ORIGIN, not against Next's
+      // basePath, and this app lives under `/auth` on the shared origin. A
+      // bare `/${locale}/sso-callback` therefore lands on the landing app
+      // (404) — the first production login on 2026-09-28 did exactly that.
+      // `appUrls.auth` (NEXT_PUBLIC_AUTH_URL, or the registry path `/auth`)
+      // carries the base path in every environment.
+      const callbackUrl = buildProfileLinkUrl(appUrls.auth, locale, returnTo);
       await signIn.authenticateWithRedirect({
         strategy,
-        redirectUrl: `/${locale}/sso-callback`,
+        redirectUrl: `${appUrls.auth}/${locale}/sso-callback`,
         redirectUrlComplete: callbackUrl,
       });
     } catch (error_) {

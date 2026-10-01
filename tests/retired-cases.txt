@@ -11,3 +11,27 @@
 # the replacement here.
 
 appends to an existing and= clause when dates are also present  # asserted the broken `and=(a),(b)` output, which PostgREST silently truncates; replaced by "puts both upper bounds in one and= group" and "never emits more than one and= group"
+uses local app URLs by default in development  # dev now shares one origin, so the fallback is the registry path; replaced by "falls back to relative same-origin paths in development too"
+returns undefined for 'localhost'  # getSharedCookieDomain deleted: cookies are host-only on the single origin
+returns undefined for '127.0.0.1'  # getSharedCookieDomain deleted: cookies are host-only on the single origin
+returns undefined for a single-segment hostname  # getSharedCookieDomain deleted: cookies are host-only on the single origin
+returns '.example.com' for 'app.example.com'  # getSharedCookieDomain deleted: cookies are host-only on the single origin
+returns '.example.com' for 'sub1.sub2.example.com'  # getSharedCookieDomain deleted: cookies are host-only on the single origin
+returns secure: true on https and includes domain when resolveSharedCookieDomain returns one  # no domain any more; replaced by "returns secure: true on https" and "never sets a domain, even on a multi-segment hostname"
+omits domain when getSharedCookieDomain returns undefined  # helper deleted; replaced by "never sets a domain, even on a multi-segment hostname"
+calls deleteCookie first when domain is set (to clear root-path cookie)  # asserted the cross-subdomain double-write; replaced by "never deletes before setting, on any hostname"
+does not call deleteCookie when domain is not set  # replaced by "never deletes before setting, on any hostname"
+calls deleteCookie twice when domain is set (once with domain, once root path)  # asserted the cross-subdomain double-delete; replaced by "deletes exactly once with host-only options, on any hostname"
+calls deleteCookie only once when no domain  # replaced by "deletes exactly once with host-only options, on any hostname"
+includes shared domain when hostname has multiple parts  # asserted the domain attribute; replaced by "never sets a domain attribute, even on a multi-segment hostname"
+omits domain when hostname has fewer than two parts  # no domain logic remains; replaced by "never sets a domain attribute, even on a multi-segment hostname"
+skips domain computation and does not dispatch event when window is undefined  # renamed to "still clears the cookie when window is undefined"
+does NOT pre-delete when domain is undefined (localhost dev)  # replaced by "never pre-deletes and never sets a domain, on any hostname"
+pre-deletes the no-domain cookie before setting when domain is present  # asserted the cross-subdomain double-write; replaced by "never pre-deletes and never sets a domain, on any hostname"
+calls deleteCookie once with base options when domain is undefined  # replaced by "deletes exactly once with host-only options, on any hostname"
+calls deleteCookie twice when domain is present (double-delete pattern)  # asserted the cross-subdomain double-delete; replaced by "deletes exactly once with host-only options, on any hostname"
+renders badge with count  # PendingOrdersBadge component deleted: nothing imported it and it linked to a 404 (payments /orders/received); the live badge in ProductListPageContent is covered by "sends the pending-orders badge to the payments sales page in the current locale"
+renders link to received orders page  # asserted the 404 href /orders/received; replaced by "sends the pending-orders badge to the payments sales page in the current locale"
+renders the translated pending orders text  # PendingOrdersBadge component deleted (unused); the live badge's text is rendered by ProductListPageContent
+returns null when count is 0  # PendingOrdersBadge component deleted (unused); ProductListPageContent hides the badge on a zero count in the same render branch
+returns null when count is undefined  # PendingOrdersBadge component deleted (unused); ProductListPageContent hides the badge on an undefined count in the same render branch

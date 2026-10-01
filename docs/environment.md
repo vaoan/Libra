@@ -61,10 +61,10 @@ APP_INTERNAL_ORIGIN=http://libra-staging:8080  # internal nginx address
 NEXT_PUBLIC_SUPABASE_URL=http://localhost:3030   # or https://... for cloud
 SUPABASE_PORT=3030                               # base port for Supabase stack
 
-# ─── Cross-app navigation ─────────────────────────────────────────
-NEXT_PUBLIC_AUTH_URL=http://localhost:5000
-NEXT_PUBLIC_STORE_URL=http://localhost:5001
-# ... one per app
+# ─── Cross-app navigation (one origin: the dev proxy on HOST_PORT) ─
+NEXT_PUBLIC_AUTH_URL=http://localhost:5050/auth
+NEXT_PUBLIC_STORE_URL=http://localhost:5050/store
+# ... one per app, path from config/app-links.json
 
 # ─── Cloudflare tunnels ───────────────────────────────────────────
 CLOUDFLARE_TUNNEL_ID=<uuid>                      # optional, enables config generation
@@ -96,7 +96,7 @@ At runtime, `loadEnv` replaces `$secret:STAGING_SUPABASE_ANON_KEY` with the valu
 4. **In CI** (`CI=true`): secrets are already in `process.env` — reads them directly, skips `.secrets`
 5. Writes all resolved vars into `process.env` — **existing vars win** (CLI/CI overrides are never overwritten)
 6. Sets `TARGET_ENV` so app code knows which environment is active
-7. If `ENV_DEBUG=true`: serializes all vars into `NEXT_PUBLIC_ENV_DEBUG` for the playground debug viewer
+7. If `ENV_DEBUG=true`: serializes all vars into `NEXT_PUBLIC_ENV_DEBUG` for the admin debug viewer (`/en/env`)
 
 ### Sync secrets from GitHub
 
@@ -119,19 +119,31 @@ This triggers a GitHub Actions workflow that encrypts all repository secrets and
 
 ### Dev server ports
 
-In dev mode, each app reads its port from its own `NEXT_PUBLIC_<APP>_URL` env var:
+Every app's `next dev` port is declared once, in `config/app-links.json`:
 
-```dotenv
-NEXT_PUBLIC_AUTH_URL=http://localhost:5000      → auth runs on 5000
-NEXT_PUBLIC_STORE_URL=http://localhost:5001     → store runs on 5001
-NEXT_PUBLIC_ADMIN_URL=http://localhost:5002     → admin runs on 5002
-NEXT_PUBLIC_PLAYGROUND_URL=http://localhost:5003
-NEXT_PUBLIC_LANDING_URL=http://localhost:5004
-NEXT_PUBLIC_PAYMENTS_URL=http://localhost:5005
-NEXT_PUBLIC_STUDIO_URL=http://localhost:5006
+```json
+"store": { "envKey": "NEXT_PUBLIC_STORE_URL", "path": "/store", "port": 5001 }
 ```
 
-`scripts/start.mjs` auto-discovers all apps in `apps/`, extracts the port from the matching env var, and passes `-p <port>` to `next dev`.
+`scripts/start.mjs` auto-discovers the apps in `apps/`, looks each one up in the
+registry, and passes `-p <port>` to `next dev`. An app directory with no
+registry entry is an error, because production could not route it either.
+
+Developers do not use those ports directly. `start.mjs` also launches
+`scripts/dev-proxy.mjs` on `HOST_PORT` (5050 in dev), which routes by path
+prefix to the six servers exactly as `docker/prod/nginx.conf` does, so the
+`NEXT_PUBLIC_<APP>_URL` values in `.env.dev` all point at one origin:
+
+```dotenv
+HOST_PORT=5050
+NEXT_PUBLIC_LANDING_URL=http://localhost:5050
+NEXT_PUBLIC_STORE_URL=http://localhost:5050/store
+NEXT_PUBLIC_AUTH_URL=http://localhost:5050/auth
+```
+
+Each app sets `basePath` from the same registry entry, so
+`http://localhost:5001/` is not a page and `http://localhost:5001/store/en`
+works; the proxy URL `http://localhost:5050/store/en` is the one to use.
 
 ### Docker container port
 
@@ -270,7 +282,7 @@ pnpm tunnel:stop --env staging   # stop tunnel processes
    - Derives the credentials file path as `~/.cloudflared/<tunnel-id>.json` (no hardcoded paths)
    - Reads `HOST_PORT` for the app port � **fails with an error if missing or invalid**
    - Reads `SUPABASE_PORT` for the Supabase port — **fails with an error if missing or `N/A`**
-   - Derives the public hostname from `SUPABASE_AUTH_SITE_URL` — **fails if missing**
+   - Derives the app hostname from `NEXT_PUBLIC_LANDING_URL` — **fails if missing** — and the zone (`ffxivbe.org`) from its last two labels
    - Generates `~/.cloudflared/config.yml` with all ingress rules pointing to the correct local ports
 3. Scans `process.env` for all `CLOUDFLARE_TUNNEL_<NAME>_ENABLED` keys
 4. For each enabled tunnel with a non-empty token: spawns `cloudflared tunnel run --token <token>` as a detached background process and calls `.unref()` so the launcher exits immediately
@@ -278,21 +290,27 @@ pnpm tunnel:stop --env staging   # stop tunnel processes
 
 ### Config generation
 
-The generated `~/.cloudflared/config.yml` maps all public hostnames to local ports derived from the env:
+The generated `~/.cloudflared/<env>-config.yml` has one app hostname — the
+container's nginx routes every app by path behind it — plus the self-hosted
+Supabase services:
 
 ```yaml
 ingress:
   - hostname: store.ffxivbe.org
-    service: http://127.0.0.1:3000 # from HOST_PORT
+    service: http://127.0.0.1:7542 # HOST_PORT — all six apps, by path
   - hostname: supabase.ffxivbe.org
-    service: http://127.0.0.1:3030 # from SUPABASE_PORT
+    service: http://127.0.0.1:64321 # SUPABASE_PORT
   - hostname: supabase-studio.ffxivbe.org
-    service: http://127.0.0.1:3032 # SUPABASE_PORT + 2
+    service: http://127.0.0.1:64323 # SUPABASE_PORT + 2
   - hostname: mailpit.ffxivbe.org
-    service: http://127.0.0.1:3033 # SUPABASE_PORT + 3
+    service: http://127.0.0.1:64324 # SUPABASE_PORT + 3
+  - service: http_status:404
 ```
 
-The hostname is derived from `SUPABASE_AUTH_SITE_URL` — the last two domain segments (e.g. `ffxivbe.org`).
+The app hostname is `NEXT_PUBLIC_LANDING_URL`'s host; the infra hostnames
+share its zone. There are no per-app hostnames: `auth.`, `admin.`,
+`payments.`, `studio.` and `landing.` are gone, and `scripts/lib/tunnel-ingress.mjs`
+is the one place the list lives.
 
 ### Named tunnel pattern
 

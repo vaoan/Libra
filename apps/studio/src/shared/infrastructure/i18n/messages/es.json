@@ -14,8 +14,7 @@
     "studio": "Estudio",
     "payments": "Pagos",
     "admin": "Admin",
-    "auth": "Cuenta",
-    "playground": "Playground"
+    "auth": "Cuenta"
   },
   "auth": {
     "login": {

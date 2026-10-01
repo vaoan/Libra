@@ -33,16 +33,9 @@ const SSH_READY_TIMEOUT = 15_000;
 const CMD_TIMEOUT_MS = 30_000;
 const CF_API_BASE = "https://api.cloudflare.com/client/v4";
 
-const CLOUDFLARE_HOSTNAMES = [
-  "furrycolombia.com",
-  "www.furrycolombia.com",
-  "store.furrycolombia.com",
-  "auth.furrycolombia.com",
-  "admin.furrycolombia.com",
-  "payments.furrycolombia.com",
-  "landing.furrycolombia.com",
-  "studio.furrycolombia.com",
-];
+// One hostname: the container's nginx routes every app by path prefix.
+// The apex and www are separate sites and are not this project's to route.
+const CLOUDFLARE_HOSTNAMES = ["store.furrycolombia.com"];
 
 // ── Secrets loader ────────────────────────────────────────────────
 

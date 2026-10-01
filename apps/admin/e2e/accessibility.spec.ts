@@ -1,11 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
 
 import { ELEMENT_TIMEOUT_MS } from "../../auth/e2e/helpers/constants";
+import { expect, test } from "../../auth/e2e/fixtures/autoCleanup";
 import {
   ADMIN_PERMISSIONS,
   createTestUser,
-  deleteTestUser,
   injectSession,
   type TestUser,
 } from "../../auth/e2e/helpers/session";
@@ -59,10 +58,6 @@ test.describe.serial("Admin accessibility", () => {
       ...ADMIN_PERMISSIONS,
       "users.export",
     ]);
-  });
-
-  test.afterAll(async () => {
-    await deleteTestUser(adminUser).catch(() => {});
   });
 
   for (const route of ROUTES) {

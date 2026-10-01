@@ -40,6 +40,12 @@ function getProductImages(images: unknown): ProductImage[] {
  *
  * When the product has real images, they are displayed.
  * When no images exist, a gradient placeholder with the product type is shown.
+ *
+ * Every thumbnail and the main image always carry a non-empty accessible
+ * name: the image's own alt when it is non-empty, otherwise a numbered
+ * "view image" label for thumbnails and the product name for the main image.
+ * An empty alt string, which seed data does produce, must never become an
+ * empty aria-label (axe: button-name).
  */
 export function ImageGallery({ product, theme }: ImageGalleryProps) {
   const tTypes = useTranslations("productTypes");
@@ -134,7 +140,7 @@ export function ImageGallery({ product, theme }: ImageGalleryProps) {
                   )}
                   style={isActive ? { backgroundColor: theme.bg } : undefined}
                   aria-label={
-                    img.alt ??
+                    img.alt ||
                     t("gallery.views.viewImage", { label: String(idx + 1) })
                   }
                   {...tid(`image-gallery-thumb-${String(idx)}`)}
@@ -162,7 +168,7 @@ export function ImageGallery({ product, theme }: ImageGalleryProps) {
           {/* eslint-disable-next-line @next/next/no-img-element -- user-provided image URLs can come from arbitrary hosts */}
           <img
             src={activeImage.url}
-            alt={activeImage.alt ?? product.name_en}
+            alt={activeImage.alt || product.name_en}
             className={cn(
               "absolute inset-0 size-full",
               activeImage.fit === "contain" ? "object-contain" : "object-cover",
@@ -209,7 +215,7 @@ export function ImageGallery({ product, theme }: ImageGalleryProps) {
           {/* eslint-disable-next-line @next/next/no-img-element -- user-provided image URLs can come from arbitrary hosts */}
           <img
             src={activeImage.url}
-            alt={activeImage.alt ?? product.name_en}
+            alt={activeImage.alt || product.name_en}
             className={cn(
               "absolute inset-0 size-full",
               activeImage.fit === "contain" ? "object-contain" : "object-cover",
@@ -262,7 +268,10 @@ export function ImageGallery({ product, theme }: ImageGalleryProps) {
                     activeCls,
                   )}
                   style={isActive ? { backgroundColor: theme.bg } : undefined}
-                  aria-label={img.alt ?? String(idx + 1)}
+                  aria-label={
+                    img.alt ||
+                    t("gallery.views.viewImage", { label: String(idx + 1) })
+                  }
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- user-provided image URLs can come from arbitrary hosts */}
                   <img

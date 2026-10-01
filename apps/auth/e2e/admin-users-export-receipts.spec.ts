@@ -1,15 +1,13 @@
 import { randomUUID } from "node:crypto";
 
-import { expect, test } from "@playwright/test";
-
 import { APP_URLS, ELEMENT_TIMEOUT_MS } from "./helpers/constants";
+import { expect, test } from "./fixtures/autoCleanup";
 import {
   ADMIN_PERMISSIONS,
   adminDelete,
   adminQuery,
   adminInsert,
   createTestUser,
-  deleteTestUser,
   injectSession,
   supabaseAdmin,
   type TestUser,
@@ -34,8 +32,9 @@ function resolveAdminUsersUrl(): string {
   const adminBase = APP_URLS.ADMIN.endsWith("/admin")
     ? APP_URLS.ADMIN
     : `${APP_URLS.ADMIN}/admin`;
-  // In dev mode APP_URLS.ADMIN is http://localhost:5002 (no basePath prefix)
-  // In Docker/production APP_URLS.ADMIN ends with /admin
+  // Every environment serves admin under /admin on one origin, so APP_URLS.ADMIN
+  // already ends with /admin (dev: http://localhost:5050/admin). adminBase only
+  // appends the prefix when a bare origin is configured by hand.
   const base = APP_URLS.ADMIN.includes("localhost")
     ? APP_URLS.ADMIN
     : adminBase;
@@ -164,8 +163,6 @@ test.describe.serial("admin users export with receipts backup", () => {
   test.afterAll(async () => {
     await adminDelete("orders", `id=eq.${orderId}`).catch(() => {});
     await supabaseAdmin.storage.from("receipts").remove([storagePath]);
-    await deleteTestUser(adminUser);
-    await deleteTestUser(buyerUser);
   });
 
   test("downloads excel export with receipt file backup row", async ({

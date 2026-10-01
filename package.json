@@ -21,7 +21,7 @@
     "fix:staged": "lint-staged --concurrent false",
     "fix:all": "pnpm format && pnpm lint --fix",
     "check:style": "stylelint \"apps/*/src/**/*.css\" \"packages/*/src/**/*.css\" && node scripts/check-css-sync.mjs",
-    "check:tools": "pnpm cspell \"apps/*/src/**/*.{ts,tsx,js,jsx,md}\" \"packages/*/src/**/*.{ts,tsx}\" && pnpm knip && pnpm jscpd apps/store/src apps/studio/src apps/landing/src apps/payments/src apps/admin/src apps/auth/src apps/playground/src packages/ui/src packages/shared/src packages/api/src packages/app-components/src packages/auth/src && pnpm ls-lint && pnpm madge --circular --extensions ts,tsx,js,jsx apps/store/src apps/studio/src apps/landing/src apps/payments/src apps/admin/src apps/auth/src apps/playground/src packages/ui/src packages/shared/src packages/api/src packages/app-components/src packages/auth/src && pnpm sherif && pnpm syncpack lint",
+    "check:tools": "pnpm cspell \"apps/*/src/**/*.{ts,tsx,js,jsx,md}\" \"packages/*/src/**/*.{ts,tsx}\" && pnpm knip && pnpm jscpd apps/store/src apps/studio/src apps/landing/src apps/payments/src apps/admin/src apps/auth/src packages/ui/src packages/shared/src packages/api/src packages/app-components/src packages/auth/src && pnpm ls-lint && pnpm madge --circular --extensions ts,tsx,js,jsx apps/store/src apps/studio/src apps/landing/src apps/payments/src apps/admin/src apps/auth/src packages/ui/src packages/shared/src packages/api/src packages/app-components/src packages/auth/src && pnpm sherif && pnpm syncpack lint",
     "sherif": "sherif",
     "sherif:fix": "sherif --fix",
     "syncpack:lint": "syncpack lint",
@@ -43,6 +43,9 @@
     "e2e:staging:headed": "node scripts/e2e.mjs --env staging --headed",
     "e2e:ci": "node scripts/e2e.mjs --env ci",
     "e2e:ci:headed": "node scripts/e2e.mjs --env ci --headed",
+    "e2e:prod": "node scripts/e2e-prod.mjs",
+    "e2e:prod:prune": "node scripts/e2e-prod-prune.mjs",
+    "e2e:prod:audit": "node scripts/e2e-prod-audit.mjs",
     "docker:build": "node scripts/docker-build.mjs",
     "docker:teardown": "node scripts/docker-teardown.mjs",
     "supabase:docker": "node scripts/supabase-docker.mjs",
@@ -61,7 +64,8 @@
     "check:a11y-patterns": "node scripts/check-a11y-patterns.mjs",
     "check:boundaries": "node scripts/check-feature-boundaries.mjs",
     "check:doc-refs": "node scripts/check-doc-references.mjs",
-    "check:docs": "node scripts/check-doc-freshness.mjs"
+    "check:docs": "node scripts/check-doc-freshness.mjs",
+    "codemod:kebab": "node scripts/codemod-kebab-filenames.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -88,6 +92,7 @@
     "eslint-plugin-unicorn": "^64.0.0",
     "eslint-plugin-unused-imports": "^4.4.1",
     "fast-check": "^4.7.0",
+    "http-proxy": "^1.18.1",
     "husky": "^9.1.7",
     "jscpd": "^4.0.9",
     "knip": "^6.7.0",
@@ -106,6 +111,8 @@
     "supabase": "^2.95.5",
     "syncpack": "^14.3.1",
     "tailwindcss": "^4.2.4",
+    "tree-kill": "^1.2.2",
+    "ts-morph": "^28.0.0",
     "turbo": "^2.9.6",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5"

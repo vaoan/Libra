@@ -17,6 +17,11 @@ import { spawn, spawnSync } from "node:child_process";
 import { closeSync, mkdirSync, openSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
+import {
+  appHostFromLandingUrl,
+  buildIngressConfig,
+  zoneOf,
+} from "./lib/tunnel-ingress.mjs";
 import { loadEnv } from "./load-env.mjs";
 
 const isWindows = process.platform === "win32";
@@ -59,7 +64,7 @@ console.log(`   env: ${targetEnv}\n`);
 // ── Generate ~/.cloudflared/config.yml from env ───────────────────────────────
 
 const tunnelId = process.env.CLOUDFLARE_TUNNEL_ID;
-let baseHost = null; // set below when tunnelId is present; used for readiness poll
+let zone = null; // set below when tunnelId is present; used for readiness poll
 
 if (tunnelId) {
   const credentialsFile = resolve(
@@ -91,51 +96,28 @@ if (tunnelId) {
     process.exit(1);
   }
 
-  const siteUrl = process.env.SUPABASE_AUTH_SITE_URL;
-  if (!siteUrl) {
+  const landingUrl = process.env.NEXT_PUBLIC_LANDING_URL;
+  if (!landingUrl) {
     console.error(
-      "ERROR: SUPABASE_AUTH_SITE_URL is not set — cannot derive hostname",
+      "ERROR: NEXT_PUBLIC_LANDING_URL is not set — cannot derive the app hostname",
     );
     process.exit(1);
   }
-  baseHost = new URL(siteUrl).hostname.split(".").slice(-2).join(".");
+  const appHost = appHostFromLandingUrl(landingUrl);
+  zone = zoneOf(appHost);
 
   const configPath = resolve(
     homedir(),
     ".cloudflared",
     `${targetEnv}-config.yml`,
   );
-  const config = `tunnel: ${tunnelId}
-credentials-file: ${credentialsFile}
-protocol: http2
-
-ingress:
-  - hostname: ${baseHost}
-    service: http://127.0.0.1:${appPort}
-  - hostname: www.${baseHost}
-    service: http://127.0.0.1:${appPort}
-  - hostname: store.${baseHost}
-    service: http://127.0.0.1:${appPort}
-  - hostname: auth.${baseHost}
-    service: http://127.0.0.1:${appPort}
-  - hostname: admin.${baseHost}
-    service: http://127.0.0.1:${appPort}
-  - hostname: payments.${baseHost}
-    service: http://127.0.0.1:${appPort}
-  - hostname: playground.${baseHost}
-    service: http://127.0.0.1:${appPort}
-  - hostname: studio.${baseHost}
-    service: http://127.0.0.1:${appPort}
-  - hostname: landing.${baseHost}
-    service: http://127.0.0.1:${appPort}
-  - hostname: supabase.${baseHost}
-    service: http://127.0.0.1:${supabasePort}
-  - hostname: supabase-studio.${baseHost}
-    service: http://127.0.0.1:${supabasePort + 2}
-  - hostname: mailpit.${baseHost}
-    service: http://127.0.0.1:${supabasePort + 3}
-  - service: http_status:404
-`;
+  const config = buildIngressConfig({
+    tunnelId,
+    credentialsFile,
+    appHost,
+    appPort,
+    supabasePort,
+  });
   writeFileSync(configPath, config, "utf-8");
   console.log(
     `✓ Generated ~/.cloudflared/${targetEnv}-config.yml (app: ${appPort}, supabase: ${supabasePort})`,
@@ -224,8 +206,8 @@ if (launchedCount === 0) {
 // cloudflared takes 5–15 s to connect to Cloudflare's edge after spawning.
 // Without this poll, callers (e2e.mjs) would start tests before the tunnel
 // is ready, receiving 530 HTML responses instead of JSON from Supabase.
-if (launchedCount > 0 && baseHost) {
-  const checkUrl = `https://supabase.${baseHost}/auth/v1/health`;
+if (launchedCount > 0 && zone) {
+  const checkUrl = `https://supabase.${zone}/auth/v1/health`;
   console.log(`\n   Waiting for tunnel to route traffic (${checkUrl})...`);
   const deadline = Date.now() + 300_000;
   let ready = false;

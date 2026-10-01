@@ -18,9 +18,9 @@ SELECT_OUTPUT=$(sh scripts/select-workspaces.sh \
   "$PAYMENTS_CHANGED" \
   "$ADMIN_CHANGED" \
   "$AUTH_CHANGED" \
-  "$PLAYGROUND_CHANGED" \
   "$PACKAGES_CHANGED" \
-  "$TOOLING_CHANGED")
+  "$TOOLING_CHANGED" \
+  "$STUDIO_CHANGED")
 
 RUN_ALL=$(echo "$SELECT_OUTPUT" | grep '^RUN_ALL=' | cut -d= -f2-)
 APPS=$(echo "$SELECT_OUTPUT" | grep '^APPS=' | cut -d= -f2-)

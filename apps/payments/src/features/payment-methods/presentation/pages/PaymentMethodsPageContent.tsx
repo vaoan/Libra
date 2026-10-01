@@ -76,7 +76,9 @@ export function PaymentMethodsPageContent({
               type="button"
               className="button-brutal shadow-brutal-md button-press-sm rounded-xl border-strong bg-brand px-6 py-3 text-brand-foreground hover:bg-brand-hover"
               onClick={handleCreate}
-              disabled={isCreating}
+              // Until useCurrentUser resolves there is no seller id to create
+              // for; a click then inserts for "" and nothing expands.
+              disabled={isCreating || !sellerId}
               {...tid("add-payment-method-button")}
             >
               <Plus className="size-5" />

@@ -69,7 +69,6 @@ export function generateConfig(targetEnv) {
     SUPABASE_AUTH_REDIRECT_URL_STORE: `${process.env.NEXT_PUBLIC_STORE_URL ?? ""}/auth/callback`,
     SUPABASE_AUTH_REDIRECT_URL_ADMIN: `${process.env.NEXT_PUBLIC_ADMIN_URL ?? ""}/auth/callback`,
     SUPABASE_AUTH_REDIRECT_URL_PAYMENTS: `${process.env.NEXT_PUBLIC_PAYMENTS_URL ?? ""}/auth/callback`,
-    SUPABASE_AUTH_REDIRECT_URL_PLAYGROUND: `${process.env.NEXT_PUBLIC_PLAYGROUND_URL ?? ""}/auth/callback`,
     SUPABASE_AUTH_REDIRECT_URL_LANDING: `${process.env.NEXT_PUBLIC_LANDING_URL ?? ""}/auth/callback`,
     SUPABASE_AUTH_REDIRECT_URL_STUDIO: `${process.env.NEXT_PUBLIC_STUDIO_URL ?? ""}/auth/callback`,
   };

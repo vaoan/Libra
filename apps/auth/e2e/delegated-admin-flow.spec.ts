@@ -1,7 +1,6 @@
 import path from "node:path";
 
-import { expect, test } from "@playwright/test";
-
+import { expect, test } from "./fixtures/autoCleanup";
 import { cleanupTestData } from "./helpers/cleanup";
 import {
   APP_URLS,
@@ -79,11 +78,6 @@ test.describe.serial("Delegated admin purchase flow", () => {
     // Standard cleanup: seller data + buyer data
     if (seller) {
       await cleanupTestData(seller.userId, buyer?.userId ?? "").catch(() => {});
-    }
-    // Delete delegate user separately (cleanupTestData handles seller+buyer pair)
-    if (delegate) {
-      const { deleteTestUser } = await import("./helpers/session");
-      await deleteTestUser(delegate).catch(() => {});
     }
   });
 

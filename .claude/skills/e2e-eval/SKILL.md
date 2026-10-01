@@ -47,6 +47,9 @@ Run e2e dev --fix
 | `--ci`         | flag                                                | off                | Match GitHub Actions runtime config: `workers=1`, `retries=2`, headless. Disables skill-level flaky-detection retry (Playwright retries instead). Mutually exclusive with `--headed`, `--ui`, `--debug`, `--replay`. |
 | `--timeout`    | milliseconds                                        | Playwright default | Override per-test timeout for slow environments                                                                                                                                                                      |
 
+> Production is never a target here; it is manual via `pnpm e2e:prod` (see
+> `docs/production-e2e.md`).
+
 **UX tests are included by default.** Pass `--no-ux` to skip them (e.g. for a fast smoke run). Do not require the user to opt-in — if they didn't say "skip ux" or "no ux", run them.
 
 Google OAuth tests are always skipped automatically (they require live Google credentials and are explicitly skipped by the specs themselves).
@@ -100,7 +103,7 @@ node scripts/e2e.mjs --env staging --app payments -- apps/payments/e2e/seller-re
 **dev:**
 
 - Supabase: local Docker (port from `.env.dev`, key `SUPABASE_PORT`)
-- Apps: `pnpm dev` (starts all apps on their ports)
+- Apps: `pnpm dev` (six dev servers plus the dev proxy on `HOST_PORT`, 5050; tests hit `http://localhost:5050/<app>`)
 - No Docker container, no tunnel
 
 **staging:**
@@ -108,7 +111,7 @@ node scripts/e2e.mjs --env staging --app payments -- apps/payments/e2e/seller-re
 - Supabase: local Docker (port 64321, config in `.env.staging`)
 - App: single Docker container (port 7542) via `pnpm docker:build --env staging --up`
 - Tunnel: Cloudflare tunnel via `pnpm tunnel --env staging`
-- All URLs go through the tunnel (e.g. `https://store.ffxivbe.org`)
+- All URLs go through the tunnel on the one hostname, by path (e.g. `https://store.ffxivbe.org/auth`)
 
 ### Playwright artifact locations
 
@@ -254,11 +257,16 @@ Write-Host "Dev server started, PID $($proc.Id)"
 
 **Step 3 — Wait for required ports to respond:**
 
-Poll each app port needed for the test run (auth=5000, admin=5002, store=5001). Wait up to 120 seconds:
+Tests hit the dev proxy on `HOST_PORT` (5050), which fronts every app by path;
+the per-app ports live in `config/app-links.json` and are not what to probe.
+Poll each app route you need through the proxy, bounded to 120 seconds:
 
 ```bash
-until curl -s -o /dev/null -w "%{http_code}" http://localhost:5002/ | grep -qE "^[245]"; do sleep 3; done
-echo "admin up"
+for i in $(seq 1 40); do
+  curl -s -o /dev/null -w "%{http_code}" http://localhost:5050/admin/en | grep -qE "^[23]" && break
+  sleep 3
+done
+echo "admin up (or 120 s elapsed — check the log)"
 ```
 
 **Step 4 — Check log for startup errors:**
@@ -283,11 +291,13 @@ If you see stack traces, module-not-found errors, or missing env var throws, dia
 After ports respond, do a quick sanity check on the actual app routes (not just the root):
 
 ```bash
-curl -s -o /dev/null -w "admin /en: %{http_code}\n" http://localhost:5002/en
-curl -s -o /dev/null -w "auth /en: %{http_code}\n" http://localhost:5000/en
+curl -s -o /dev/null -w "admin /admin/en: %{http_code}\n" http://localhost:5050/admin/en
+curl -s -o /dev/null -w "auth /auth/en: %{http_code}\n" http://localhost:5050/auth/en
 ```
 
-A 200 or 3xx is healthy. A 500 on a valid route means the server is broken — **do not proceed to Phase 3**. Read `C:\Temp\devserver.log` for the exception, fix the underlying cause, then restart.
+A 200 or 3xx is healthy. A bare app port without its prefix
+(`http://localhost:5002/en`) is a 404 by design — every app serves only under
+its `basePath`. A 500 on a valid route means the server is broken — **do not proceed to Phase 3**. Read `C:\Temp\devserver.log` for the exception, fix the underlying cause, then restart.
 
 #### Staging environment
 

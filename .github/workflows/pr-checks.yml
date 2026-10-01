@@ -106,7 +106,6 @@ jobs:
       store: ${{ steps.changes.outputs.store }}
       admin: ${{ steps.changes.outputs.admin }}
       auth: ${{ steps.changes.outputs.auth }}
-      playground: ${{ steps.changes.outputs.playground }}
       packages: ${{ steps.changes.outputs.packages }}
       tests: ${{ steps.changes.outputs.tests }}
       e2e: ${{ steps.changes.outputs.e2e }}
@@ -129,8 +128,6 @@ jobs:
               - 'apps/admin/**'
             auth:
               - 'apps/auth/**'
-            playground:
-              - 'apps/playground/**'
             packages:
               - 'packages/**'
             tests:
@@ -253,7 +250,6 @@ jobs:
               store: '${{ needs.changes.outputs.store }}' === 'true',
               admin: '${{ needs.changes.outputs.admin }}' === 'true',
               auth: '${{ needs.changes.outputs.auth }}' === 'true',
-              playground: '${{ needs.changes.outputs.playground }}' === 'true',
               packages: '${{ needs.changes.outputs.packages }}' === 'true',
               tests: '${{ needs.changes.outputs.tests }}' === 'true',
               e2e: '${{ needs.changes.outputs.e2e }}' === 'true',
@@ -268,7 +264,6 @@ jobs:
             summary += `| Store app | ${changes.store ? 'YES' : '-'} |\n`;
             summary += `| Admin app | ${changes.admin ? 'YES' : '-'} |\n`;
             summary += `| Auth app | ${changes.auth ? 'YES' : '-'} |\n`;
-            summary += `| Playground app | ${changes.playground ? 'YES' : '-'} |\n`;
             summary += `| Shared packages | ${changes.packages ? 'YES' : '-'} |\n`;
             summary += `| Unit tests | ${changes.tests ? 'YES' : '-'} |\n`;
             summary += `| E2E tests | ${changes.e2e ? 'YES' : '-'} |\n`;

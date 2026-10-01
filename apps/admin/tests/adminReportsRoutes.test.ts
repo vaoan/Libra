@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("api/supabase/server", () => ({
   createServerSupabaseClient: vi.fn(),
@@ -43,6 +43,16 @@ function mockCallerPermissions(...keys: string[]) {
 }
 
 describe("admin report routes", () => {
+  // The first import transforms two Next route modules and their dependency
+  // graph, which on a cold machine takes longer than the 10 s test budget and
+  // failed the first case (and, by leaving the mock registry half-built, the
+  // second) in the pre-push run. Pay that cost once here, outside any test's
+  // clock; loadRoutes()'s per-test re-imports then hit the transform cache.
+  beforeAll(async () => {
+    await import("@/app/api/admin/reports/orders/route");
+    await import("@/app/api/admin/reports/export/route");
+  }, 120_000);
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("fetch", vi.fn());

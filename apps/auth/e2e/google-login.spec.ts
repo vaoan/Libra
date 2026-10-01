@@ -39,7 +39,6 @@ const {
   auth: AUTH_URL,
   store: STORE_URL,
   admin: ADMIN_URL,
-  playground: PLAYGROUND_URL,
   landing: LANDING_URL,
   payments: PAYMENTS_URL,
   studio: STUDIO_URL,
@@ -54,8 +53,6 @@ const PUBLIC_PAYMENTS_URL =
   process.env.NEXT_PUBLIC_PAYMENTS_URL ?? PAYMENTS_URL;
 const PUBLIC_ADMIN_URL = process.env.NEXT_PUBLIC_ADMIN_URL ?? ADMIN_URL;
 const PUBLIC_STUDIO_URL = process.env.NEXT_PUBLIC_STUDIO_URL ?? STUDIO_URL;
-const PUBLIC_PLAYGROUND_URL =
-  process.env.NEXT_PUBLIC_PLAYGROUND_URL ?? PLAYGROUND_URL;
 
 // When OAuth is used, the session cookie is on the public domain (tunnel).
 // Use public URLs for cross-app checks so the session carries over.
@@ -71,11 +68,6 @@ const APP_CHECKS = [
     name: "store",
     url: `${isOAuthEnv ? PUBLIC_STORE_URL : STORE_URL}/en`,
     readyTestIds: ["product-catalog-page"],
-  },
-  {
-    name: "playground",
-    url: `${isOAuthEnv ? PUBLIC_PLAYGROUND_URL : PLAYGROUND_URL}/en`,
-    readyTestIds: ["playground-page"],
   },
   {
     name: "payments",

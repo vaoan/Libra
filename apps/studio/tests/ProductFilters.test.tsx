@@ -75,4 +75,15 @@ describe("ProductFilters", () => {
 
     expect(mockSetParams).toHaveBeenCalled();
   });
+
+  // The debounce effect runs on mount too. Writing q=null to a URL that has
+  // no q is a history.replaceState Next turns into ACTION_RESTORE, which
+  // discards any navigation still in flight -- in production the "New
+  // product" click 300ms after the list rendered never left the list
+  // (CI production E2E run e2e-20260928-0356-7305).
+  it("does not write the URL on mount when the search box already matches it", () => {
+    render(<ProductFilters />);
+    vi.advanceTimersByTime(1000);
+    expect(mockSetParams).not.toHaveBeenCalled();
+  });
 });

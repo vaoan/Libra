@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import createNextIntlPlugin from "next-intl/plugin";
 
+import appLinks from "../../config/app-links.json";
+
 const withNextIntl = createNextIntlPlugin(
   "./src/shared/infrastructure/i18n/request.ts",
 );
@@ -63,18 +65,17 @@ const securityHeaders = [
 ];
 
 const isStandalone = process.env.STANDALONE === "true";
-const basePathPrefix = process.env.BASE_PATH_PREFIX || "";
-const allowedDevOrigins = ["studio.ffxivbe.org"];
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL || "http://localhost:54321";
 const supabaseHostname = new URL(supabaseUrl).hostname;
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins,
+  // One origin, routed by path prefix, in every environment (nginx in prod,
+  // scripts/dev-proxy.mjs in dev). The registry is the single source.
+  basePath: appLinks.studio.path,
   ...(isStandalone && {
     output: "standalone" as const,
-    basePath: `${basePathPrefix}/studio`,
     outputFileTracingRoot: path.join(__dirname, "../.."),
   }),
   // lucide-react v1.x ESM dist uses .ts imports in .js files — Turbopack

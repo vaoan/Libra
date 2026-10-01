@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { tid } from "shared";
 import { Button, Input } from "ui";
 
@@ -37,25 +37,43 @@ export function AddDelegateForm({ onAdd, isAdding }: AddDelegateFormProps) {
   );
   const [isSearching, setIsSearching] = useState(false);
 
-  const handleSearch = useCallback(
-    async (value: string) => {
-      setQuery(value);
-      if (!user || value.trim().length < MIN_SEARCH_LENGTH) {
-        setResults([]);
-        return;
-      }
-      setIsSearching(true);
-      try {
-        const users = await search(value);
-        setResults(users);
-      } catch {
-        setResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    },
-    [search, user],
-  );
+  // The search is driven by state, not by the change event: it runs whenever
+  // the query is long enough AND the current user is known. Searching inside
+  // onChange bailed out while `useCurrentUser` was still resolving, so an
+  // email typed in that window was dropped for good -- no results, no hint,
+  // nothing re-ran when the user arrived (production E2E run
+  // e2e-20260928-0758-60c6). A selection is not re-searched: picking a user
+  // puts their display name in the box, and that must not reopen the list.
+  const selectedLabel = selectedUser ? getDisplayName(selectedUser) : null;
+  useEffect(() => {
+    if (
+      !user ||
+      query.trim().length < MIN_SEARCH_LENGTH ||
+      query === selectedLabel
+    ) {
+      setResults([]);
+      return;
+    }
+    let isActive = true;
+    setIsSearching(true);
+    search(query)
+      .then((users) => {
+        if (isActive) setResults(users);
+      })
+      .catch(() => {
+        if (isActive) setResults([]);
+      })
+      .finally(() => {
+        if (isActive) setIsSearching(false);
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [query, user, search, selectedLabel]);
+
+  const handleSearch = useCallback((value: string) => {
+    setQuery(value);
+  }, []);
 
   const handleSelectUser = useCallback(
     (u: { id: string; email: string; display_name: string | null }) => {

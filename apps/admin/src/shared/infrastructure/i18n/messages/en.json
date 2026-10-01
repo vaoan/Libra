@@ -14,8 +14,7 @@
     "studio": "Studio",
     "payments": "Payments",
     "admin": "Admin",
-    "auth": "Account",
-    "playground": "Playground"
+    "auth": "Account"
   },
   "sidebar": {
     "auditLog": "Audit Log",
@@ -465,5 +464,13 @@
       "select": "Select language"
     },
     "feedback": "Feedback"
+  },
+  "env": {
+    "title": "Environment Variables",
+    "notEnabled": "ENV_DEBUG is not enabled. Set ENV_DEBUG=true in your env file.",
+    "notSet": "not set",
+    "summary": "TARGET_ENV={targetEnv} · NODE_ENV={nodeEnv} · {count} vars",
+    "key": "Key",
+    "value": "Value"
   }
 }

@@ -2,8 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { expect, test } from "@playwright/test";
-
+import { expect, test } from "./fixtures/autoCleanup";
 import { cleanupTestData } from "./helpers/cleanup";
 import {
   APP_URLS,
@@ -19,6 +18,7 @@ import {
   SELLER_PERMISSIONS,
   type TestUser,
 } from "./helpers/session";
+import { downloadReceipt, sha256Hex } from "./helpers/receiptDownload";
 import { createSnapHelper } from "./helpers/snap";
 
 const { snap, resetCounter } = createSnapHelper(
@@ -81,10 +81,6 @@ test.describe.serial("Delegate sees buyer receipt", () => {
     }
     if (seller) {
       await cleanupTestData(seller.userId, buyer?.userId ?? "").catch(() => {});
-    }
-    if (delegate) {
-      const { deleteTestUser } = await import("./helpers/session");
-      await deleteTestUser(delegate).catch(() => {});
     }
   });
 
@@ -358,16 +354,13 @@ test.describe.serial("Delegate sees buyer receipt", () => {
       .update(readFileSync(RECEIPT_FIXTURE))
       .digest("hex");
 
-    const downloadedHash = await page.evaluate(async (url: string) => {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Receipt fetch failed: ${response.status}`);
-      }
-      const buffer = await response.arrayBuffer();
-      const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-    }, receiptHref!);
+    // From Node, with bounded retries: Supabase Storage returned a 502 once
+
+    // during a Supabase incident, and that is the provider's answer, not ours.
+
+    const downloadedHash = sha256Hex(
+      (await downloadReceipt(receiptHref!)).bytes,
+    );
 
     expect(downloadedHash).toBe(fixtureHash);
 

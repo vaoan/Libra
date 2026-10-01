@@ -5,6 +5,16 @@ import { clerk, clerkSetup } from "@clerk/testing/playwright";
 import type { BrowserContext } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
+import { waitForClerkToSettle } from "./clerkSettle";
+import { mintProductionSessionToken } from "./clerkSession";
+import { assertNotProductionClerk, productionGuardContext } from "./guardEnv";
+import {
+  ensureRunRegistered,
+  registerRow,
+  runScopedEmail,
+} from "./runRegistry";
+import { attachProfileId, registerClerkUser } from "./userRegistry";
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- shared Node helper
 const { resolveE2EAppUrls } = require(
   path.resolve(__dirname, "../../../../scripts/app-url-resolver.js"),
@@ -47,6 +57,7 @@ if (!CLERK_SECRET_KEY)
     "CLERK_SECRET_KEY is not set. Ensure the correct .env.* file is loaded.",
   );
 const CLERK_SECRET_KEY_VALUE: string = CLERK_SECRET_KEY;
+assertNotProductionClerk(CLERK_SECRET_KEY_VALUE, productionGuardContext());
 
 const AUTH_URL: string = resolveE2EAppUrls().auth;
 
@@ -89,6 +100,10 @@ export const supabaseAdmin = createClient(
  * Direct REST helper for data operations that need to bypass RLS.
  * The JS client with sb_secret_ keys doesn't bypass RLS for PostgREST,
  * but raw REST API calls with the same key do.
+ *
+ * Inside a production run (`E2E_RUN_ID` set) the returned row's `id` is
+ * registered in `e2e_run_rows` so the run's prune can delete it; outside one
+ * the registration is a no-op.
  */
 export async function adminInsert(
   table: string,
@@ -107,7 +122,9 @@ export async function adminInsert(
     throw new Error(`Admin insert into ${table} failed: ${err.message}`);
   }
   const rows = await res.json();
-  return rows[0];
+  const row = rows[0] as Record<string, unknown>;
+  if (typeof row?.id === "string") await registerRow(table, row.id);
+  return row;
 }
 
 /**
@@ -125,6 +142,25 @@ export async function adminQuery(
     throw new Error(`Admin query on ${table} failed: ${err.message}`);
   }
   return res.json();
+}
+
+/**
+ * Direct REST helper for updating data as admin.
+ */
+export async function adminUpdate(
+  table: string,
+  params: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  const res = await fetch(`${SUPABASE_URL_VALUE}/rest/v1/${table}?${params}`, {
+    method: "PATCH",
+    headers: adminHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }));
+    throw new Error(`Admin update on ${table} failed: ${err.message}`);
+  }
 }
 
 /**
@@ -304,6 +340,18 @@ export async function deleteClerkUserBySub(clerkUserId: string): Promise<void> {
  * `user_profiles` row, default buyer permissions, and any additional
  * `permissions` requested.
  *
+ * As a side effect, registers the Clerk user into the module-level cleanup
+ * registry (`userRegistry.ts`) the instant it is created — before the
+ * profile RPC, `grantPermissions`, or session/token minting below get a
+ * chance to throw. This ordering is the correctness argument for the whole
+ * auto-cleanup mechanism: if any later step throws, the Clerk user is
+ * already registered and `drainTestUsers` can still delete it, instead of
+ * orphaning it against the Clerk dev instance's 100-user cap. Once the
+ * profile row exists, the registry entry is enriched with the profile id
+ * (`attachProfileId`) so a later failure still lets drain use the full
+ * `deleteTestUser` (profile row + Clerk user) rather than the Clerk-only
+ * fallback.
+ *
  * Profile creation calls the exact RPC `resolveProfile()`'s "created" branch
  * uses in production (`create_profile_with_default_permissions` — see
  * supabase/migrations/20260829170000_profile_create_with_permissions.sql)
@@ -318,19 +366,38 @@ export async function deleteClerkUserBySub(clerkUserId: string): Promise<void> {
  * No browser page is involved, so this is safe to call from
  * `test.beforeAll`, before any `context`/`page` fixture exists — exactly how
  * every consumer of this function already calls it.
+ *
+ * Production runs: the email carries the run id instead of `Date.now()`, the
+ * Clerk user id and profile id are registered for prune, and the session JWT
+ * is minted through a sign-in token because production instances refuse
+ * Backend-API sessions (clerkSession.ts). Development keys keep the SDK path.
+ *
+ * Refuses to start (via `ensureRunRegistered`) when `E2E_RUN_ID` names a run
+ * `e2e_runs` does not know. The address comes from `runScopedEmail(label)`:
+ * inside a run its token is `<Date.now() in base36>-<run_id>` so same-label
+ * users never collide, and the label is cut so the local part stays within
+ * the 64 characters Clerk accepts (long labels drew a bare 422 in production).
  */
 export async function createTestUser(
   label: string,
   permissions: string[] = [],
 ): Promise<TestUser> {
+  await ensureRunRegistered();
   // A Clerk dev-instance test email (`+clerk_test` subaddress): no real
   // inbox, no verification email actually sent, unique per run.
-  const email = `e2e-${label}-${Date.now()}+clerk_test@example.com`;
+  const email = runScopedEmail(label);
 
   const clerkUser = await clerkClient.users.createUser({
     emailAddress: [email],
     skipPasswordRequirement: true,
   });
+  // Register the instant the Clerk user exists -- before the profile RPC,
+  // permission grants, or session/token minting below get a chance to throw
+  // and orphan it against the Clerk dev instance's 100-user cap. This is the
+  // exact "throws inside beforeAll" gap the old afterAll convention leaked
+  // on; see userRegistry.ts's RegisteredUser doc comment.
+  registerClerkUser({ clerkUserId: clerkUser.id, email });
+  await registerRow("clerk_users", clerkUser.id);
 
   const { data: profile, error } = await supabaseAdmin.rpc(
     "create_profile_with_default_permissions",
@@ -347,23 +414,45 @@ export async function createTestUser(
     );
   }
   const profileId = (profile as { id: string }).id;
+  // Enrich the registry entry as soon as the profile exists, so a later
+  // failure (grantPermissions, session/token minting) still lets drain use
+  // the full deleteTestUser (profile row + Clerk user) instead of the
+  // Clerk-only fallback.
+  attachProfileId(clerkUser.id, profileId);
+  await registerRow("user_profiles", profileId);
 
   if (permissions.length > 0) {
     await grantPermissions(profileId, permissions);
   }
 
   // A real backend session — see the `accessToken` doc comment on TestUser.
-  const session = await clerkClient.sessions.createSession({
-    userId: clerkUser.id,
-  });
-  const token = await clerkClient.sessions.getToken(session.id);
+  // Production instances refuse Backend-API sessions, so a live key goes
+  // through a sign-in token instead (clerkSession.ts); development keeps the
+  // SDK path unchanged.
+  const jwt = CLERK_SECRET_KEY_VALUE.startsWith("sk_live_")
+    ? await mintProductionSessionToken({
+        secretKey: CLERK_SECRET_KEY_VALUE,
+        domain: process.env.NEXT_PUBLIC_CLERK_DOMAIN,
+        userId: clerkUser.id,
+      })
+    : await mintDevelopmentSessionToken(clerkUser.id);
 
   return {
     userId: profileId,
     email,
     clerkUserId: clerkUser.id,
-    accessToken: token.jwt,
+    accessToken: jwt,
   };
+}
+
+async function mintDevelopmentSessionToken(
+  clerkUserId: string,
+): Promise<string> {
+  const session = await clerkClient.sessions.createSession({
+    userId: clerkUserId,
+  });
+  const token = await clerkClient.sessions.getToken(session.id);
+  return token.jwt;
 }
 
 /**
@@ -382,6 +471,12 @@ export async function createTestUser(
  * one left carrying the new session. Cookies are shared across the whole
  * `context` regardless of which page set them, so any other page the caller
  * later navigates also sees the new session.
+ *
+ * Before leaving the page it is on, waits for Clerk's browser script there
+ * to finish initializing (`waitForClerkToSettle`): navigating away in that
+ * window made Clerk's first FAPI calls go out without cookies, which reset
+ * the client and made the route guard's redirect abort this very `goto`
+ * (CI production run e2e-20260928-0726-c2f5).
  */
 export async function injectSession(
   context: BrowserContext,
@@ -389,6 +484,9 @@ export async function injectSession(
 ): Promise<void> {
   await ensureClerkSetup();
   const page = context.pages()[0] ?? (await context.newPage());
+  // Never leave the current page mid-Clerk-init: its cookieless FAPI calls
+  // would reset the client and the guard's redirect would abort this goto.
+  await waitForClerkToSettle(page);
 
   // An unprotected page that loads Clerk's client JS — required before
   // clerk.signOut/signIn, both of which operate on `window.Clerk`.

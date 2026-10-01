@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { ImageGallery } from "@/features/products/presentation/components/ProductDetail/ImageGallery";
@@ -157,6 +157,28 @@ describe("ImageGallery", () => {
     expect(
       screen.queryByTestId("image-gallery-thumbs"),
     ).not.toBeInTheDocument();
+  });
+
+  it("labels thumbnails and the main image when an image's alt is empty", () => {
+    const images = [
+      { url: "https://example.com/img1.jpg", alt: "" },
+      { url: "https://example.com/img2.jpg", alt: "" },
+    ];
+    render(
+      <ImageGallery product={makeProduct({ images })} theme={defaultTheme} />,
+    );
+
+    // Empty alt is a real value the seed data produces; it must not become an
+    // empty accessible name (axe: button-name).
+    expect(screen.getByTestId("image-gallery-thumb-0")).toHaveAccessibleName(
+      "gallery.views.viewImage:1",
+    );
+    expect(screen.getByTestId("image-gallery-thumb-1")).toHaveAccessibleName(
+      "gallery.views.viewImage:2",
+    );
+    expect(
+      within(screen.getByTestId("image-gallery-main")).getByRole("img"),
+    ).toHaveAttribute("alt", "Test Product");
   });
 
   it("changes active image when thumbnail is clicked", () => {

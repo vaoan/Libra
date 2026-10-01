@@ -14,8 +14,21 @@ services:
     image: ${SITE_PROD_IMAGE_NAME}
     container_name: ${SITE_PROD_CONTAINER_NAME}
     ports:
-      - "${HOST_PORT}:8080"
+      # Loopback only: in production a Cloudflare Tunnel on the same host is
+      # the only client, so the box exposes no inbound port but SSH.
+      - "127.0.0.1:${HOST_PORT}:8080"
     restart: unless-stopped
+    # Production co-locates with a latency-sensitive audio bridge on a
+    # 1 vCPU / 961 MB box. A Next.js leak must kill this container, never the
+    # bridge, and SSR bursts must not monopolise the core.
+    mem_limit: 600m
+    memswap_limit: 1500m
+    cpus: 0.75
+    pids_limit: 1024
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8080/health"]
       interval: 15s
@@ -32,11 +45,10 @@ services:
       # These are only injected when the variables are set in the host env.
       - SUPABASE_URL_INTERNAL=${SUPABASE_URL_INTERNAL:-}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
-      # Telegram alerting for the in-container health watcher (optional).
-      # Set both variables to enable; leave empty to keep alerts disabled.
+      # Boot report to Telegram (docker/boot-reporter.mjs); empty disables it.
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
-      - SERVER_HOSTNAME=${HOSTNAME:-libra-prod}
+      - TELEGRAM_THREAD_ID=${TELEGRAM_THREAD_ID:-}
     extra_hosts:
       # Allow the container to reach host-local services (e.g. Supabase on
       # localhost:64321) via host.docker.internal on Linux/Windows/Mac.

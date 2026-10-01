@@ -49,10 +49,26 @@ export function SearchBar() {
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current);
       }
-      timerRef.current = setTimeout(() => commitQuery(value), DEBOUNCE_MS);
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        commitQuery(value);
+      }, DEBOUNCE_MS);
     },
     [commitQuery],
   );
+
+  // Flush a pending debounced write when focus leaves the input. Clicking
+  // anywhere else (a product card) blurs the input before the click event, so
+  // the URL write lands before the Link navigation starts. Left to the timer,
+  // the write could land while that navigation is in flight: Next turns a
+  // userland history.replaceState into an ACTION_RESTORE, and a restore
+  // discards any pending navigation -- the page silently stays on the catalog.
+  const handleBlur = useCallback(() => {
+    if (timerRef.current === null) return;
+    clearTimeout(timerRef.current);
+    timerRef.current = null;
+    commitQuery(localValue);
+  }, [commitQuery, localValue]);
 
   return (
     <div className="relative" {...tid("search-bar")}>
@@ -65,6 +81,7 @@ export function SearchBar() {
         type="search"
         value={localValue}
         onChange={handleChange}
+        onBlur={handleBlur}
         placeholder={t("search")}
         className="w-full border-strong border-foreground bg-background pl-9 pr-4 py-2 text-sm font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground focus:ring-offset-0 rounded-none"
         aria-label={t("search")}
