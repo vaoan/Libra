@@ -145,6 +145,25 @@ export async function adminQuery(
 }
 
 /**
+ * Direct REST helper for updating data as admin.
+ */
+export async function adminUpdate(
+  table: string,
+  params: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  const res = await fetch(`${SUPABASE_URL_VALUE}/rest/v1/${table}?${params}`, {
+    method: "PATCH",
+    headers: adminHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }));
+    throw new Error(`Admin update on ${table} failed: ${err.message}`);
+  }
+}
+
+/**
  * Direct REST helper for deleting data as admin.
  */
 export async function adminDelete(

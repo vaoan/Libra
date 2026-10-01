@@ -37,6 +37,14 @@ interface UseCurrentUserReturn {
    * state instead.
    */
   hasProfileLookupError: boolean;
+  /**
+   * True when Clerk reports a signed-in session and the lookup *succeeded*
+   * but no profile is linked to that identity. The person is signed in; the
+   * link was never made (see `buildProfileLinkUrl`). Consumers send them
+   * through the auth callback to link it — not to `/login`, which can only
+   * offer the sign-in they already completed.
+   */
+  needsProfileLink: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -59,6 +67,13 @@ function delay(ms: number): Promise<void> {
  * tables — every former consumer of `useSupabaseAuth().user.id` needs the
  * local profile id instead, resolved the same way the server-side call
  * sites do: the `current_user_id()` RPC (see `getCurrentUserIdResult`).
+ *
+ * A signed-in Clerk session resolves to one of three outcomes, and consumers
+ * must keep them apart: a profile id (`isAuthenticated`), a lookup that
+ * failed (`hasProfileLookupError`), or a lookup that succeeded and found no
+ * linked profile (`needsProfileLink`). The last is a person whose sign-in
+ * never reached the auth callback that links profiles — they are signed in,
+ * and must be sent to link, not to log in again.
  */
 export function useCurrentUser(): UseCurrentUserReturn {
   const { isLoaded, isSignedIn, user: clerkUser } = useUser();
@@ -130,6 +145,11 @@ export function useCurrentUser(): UseCurrentUserReturn {
     isAuthenticated: user !== null,
     isLoading,
     hasProfileLookupError: Boolean(isSignedIn) && hasProfileLookupError,
+    needsProfileLink:
+      Boolean(isSignedIn) &&
+      !isLoading &&
+      !hasProfileLookupError &&
+      profileId === null,
     signOut: () => clerkSignOut(),
   };
 }
