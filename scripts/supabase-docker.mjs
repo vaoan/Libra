@@ -112,14 +112,23 @@ process.on("SIGTERM", () => {
 
 // ── Run supabase command(s) ───────────────────────────────────────────────────
 
-function runSupabase(subcommand) {
-  console.log(`Running: supabase ${subcommand} ...`);
+/**
+ * `start` pulls a dozen images from public.ecr.aws, and in CI that pull is the
+ * flakiest step there is: on 2026-09-30 it failed five times in one evening,
+ * as "toomanyrequests: Data limit exceeded" and as connection timeouts. CI
+ * caches the images (see the "Supabase images" steps in ci.yml); these retries
+ * cover a cache miss and a registry that is only briefly unreachable. Waits
+ * are in seconds, one per retry.
+ */
+const START_RETRY_WAITS_S = [30, 90];
+
+function spawnSupabase(subcommand) {
   const commandArgs =
     subcommand === "reset"
       ? ["supabase", "db", "reset"]
       : ["supabase", subcommand];
 
-  const result = spawnSync(
+  return spawnSync(
     // nosemgrep: spawn-shell-true
     isWindows ? "pnpm.cmd" : "pnpm",
     commandArgs,
@@ -130,6 +139,28 @@ function runSupabase(subcommand) {
       shell: isWindows,
     },
   );
+}
+
+function runSupabase(subcommand) {
+  console.log(`Running: supabase ${subcommand} ...`);
+  let result = spawnSupabase(subcommand);
+
+  if (subcommand === "start") {
+    for (const waitS of START_RETRY_WAITS_S) {
+      if (result.status === 0) break;
+      console.warn(
+        `\nsupabase start failed (exit ${result.status ?? "unknown"}); retrying in ${waitS}s`,
+      );
+      removeContainers(`libra-${targetEnv}`);
+      Atomics.wait(
+        new Int32Array(new SharedArrayBuffer(4)),
+        0,
+        0,
+        waitS * 1000,
+      );
+      result = spawnSupabase(subcommand);
+    }
+  }
 
   if (result.status !== 0) {
     console.error(
@@ -142,20 +173,24 @@ function runSupabase(subcommand) {
   console.log(`\n✓ supabase ${subcommand} completed`);
 }
 
+/** Remove every container a previous (possibly half-finished) start left. */
+function removeContainers(projectId) {
+  const containers = getSupabaseContainers(projectId);
+  if (containers.length === 0) return 0;
+  spawnSync("docker", ["rm", "-f", ...containers], {
+    cwd: rootDir,
+    stdio: "pipe",
+    env: process.env,
+  });
+  return containers.length;
+}
+
 if (command === "restart" || command === "start") {
   // Clean up any orphaned containers before start/restart
   const projectId = `libra-${targetEnv}`;
-  const orphans = getSupabaseContainers(projectId);
-  if (orphans.length > 0) {
-    console.log(
-      `Cleaning up ${orphans.length} orphaned container(s) for ${projectId}...`,
-    );
-    spawnSync("docker", ["rm", "-f", ...orphans], {
-      cwd: rootDir,
-      stdio: "pipe",
-      env: process.env,
-    });
-    console.log(`✓ Removed orphaned containers`);
+  const removed = removeContainers(projectId);
+  if (removed > 0) {
+    console.log(`✓ Removed ${removed} orphaned container(s) for ${projectId}`);
   }
 
   if (command === "restart") {

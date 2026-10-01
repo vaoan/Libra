@@ -534,6 +534,27 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Supabase's images come from public.ecr.aws, whose pulls failed this
+      # job and the E2E job five times on 2026-09-30 ("toomanyrequests: Data
+      # limit exceeded", connection timeouts). The image set is fixed by the
+      # CLI version and the config template, so cache it on that key and load
+      # it instead of pulling. Saved only after a successful start, so a
+      # half-pulled set is never cached. Mirrored in the e2e-tests job.
+      - name: Get Supabase CLI version
+        id: supabase-version
+        run: echo "version=$(node -p "require('supabase/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Supabase images
+        id: supabase-images
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: /tmp/supabase-images.tar
+          key: supabase-images-${{ runner.os }}-${{ steps.supabase-version.outputs.version }}-${{ hashFiles('supabase/config.toml.template') }}
+
+      - name: Load Supabase images
+        if: steps.supabase-images.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/supabase-images.tar
+
       # Applies every migration from scratch, so the suite asserts against the
       # schema the migrations produce rather than whatever a previous run left.
       - name: Start Supabase
@@ -552,6 +573,17 @@ jobs:
           GOOGLE_TEST_PASSWORD: ${{ secrets.GOOGLE_TEST_PASSWORD }}
           TALLY_FORM_ID: ${{ secrets.TALLY_FORM_ID }}
         run: pnpm supabase:docker start --env ci
+
+      - name: Export Supabase images
+        if: steps.supabase-images.outputs.cache-hit != 'true'
+        run: docker save -o /tmp/supabase-images.tar $(docker images --format '{{.Repository}}:{{.Tag}}' | grep '/supabase/')
+
+      - name: Save Supabase images
+        if: steps.supabase-images.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: /tmp/supabase-images.tar
+          key: ${{ steps.supabase-images.outputs.cache-primary-key }}
 
       - name: Run database invariant tests
         # The env loader validates every $secret: reference in .env.ci, not just
@@ -612,6 +644,22 @@ jobs:
         run: |
           docker pull ${{ needs.docker-build.outputs.image }}
           docker tag ${{ needs.docker-build.outputs.image }} libra-ci
+
+      # See the db-tests job: same cache, same key, same reasons.
+      - name: Get Supabase CLI version
+        id: supabase-version
+        run: echo "version=$(node -p "require('supabase/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Supabase images
+        id: supabase-images
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: /tmp/supabase-images.tar
+          key: supabase-images-${{ runner.os }}-${{ steps.supabase-version.outputs.version }}-${{ hashFiles('supabase/config.toml.template') }}
+
+      - name: Load Supabase images
+        if: steps.supabase-images.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/supabase-images.tar
 
       - name: Get Playwright version
         id: playwright-version
@@ -680,6 +728,25 @@ jobs:
             echo "Running E2E for ${E2E_APP} (env=ci)"
             node scripts/e2e.mjs --env ci --app "${E2E_APP}"
           done
+
+      # Only after a passing run: a failed step may be a half-finished pull,
+      # and caching that set would pin the missing images out of the cache.
+      # Skipped when no app ran, since Supabase never started then.
+      - name: Export Supabase images
+        id: supabase-export
+        if: success() && steps.supabase-images.outputs.cache-hit != 'true'
+        run: |
+          IMAGES=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep '/supabase/' || true)
+          if [ -z "$IMAGES" ]; then echo "exported=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          docker save -o /tmp/supabase-images.tar $IMAGES
+          echo "exported=true" >> "$GITHUB_OUTPUT"
+
+      - name: Save Supabase images
+        if: steps.supabase-export.outputs.exported == 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: /tmp/supabase-images.tar
+          key: ${{ steps.supabase-images.outputs.cache-primary-key }}
 
       - name: Capture app container logs (on failure)
         # A container-side crash (e.g. a crash-looping supervisord program)
