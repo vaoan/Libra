@@ -979,7 +979,7 @@ const eslintConfig = defineConfig([
     },
   },
   // Constants files define magic numbers and semantic strings - they ARE the single source of truth
-  // See: docs/lessons/no-hardcoding.md
+  // See: .claude/rules/no-hardcoding.md
   {
     files: [
       `${APP_SRC}/**/constants/*.ts`,
@@ -1085,7 +1085,7 @@ const eslintConfig = defineConfig([
     },
   },
   // Chart components - CSS variable strings must stay inline (not extracted to JS)
-  // See: docs/lessons/code-review-standards.md#css-variable-strings-policy
+  // See: .claude/rules/code-review-standards.md#css-variable-strings-policy
   {
     files: [
       `${APP_SRC}/**/presentation/components/**/*Chart.tsx`,
@@ -1557,7 +1557,7 @@ const eslintConfig = defineConfig([
   // Enforce tid() utility for test IDs in apps and packages (stripped in production)
   // tid() is centralized in packages/shared
   // Also: Enforce centralized process.env access (only in config files)
-  // See: docs/lessons/no-hardcoding.md
+  // See: .claude/rules/no-hardcoding.md
   {
     files: [`${APP_SRC}/**/*.{ts,tsx}`, "packages/*/src/**/*.{ts,tsx}"],
     ignores: [
