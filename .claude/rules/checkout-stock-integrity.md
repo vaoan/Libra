@@ -1,7 +1,7 @@
 ---
 paths:
-  - "apps/store/**/checkout/**"
   - "apps/store/**/cart/**"
+  - "apps/*/e2e/*checkout*"
   - "apps/payments/**"
   - "supabase/migrations/**"
   - "tests/db/seller-payment-methods.test.ts"

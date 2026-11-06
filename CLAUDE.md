@@ -8,7 +8,7 @@ A pnpm workspace monorepo: a store and payment platform selling products, servic
 
 Six Next.js 16 apps in `apps/`: `store` (the reference standard every other app complies with), `landing`, `payments`, `admin`, `auth`, `studio`. Shared packages in `packages/`: `api` (generated hooks, types, HTTP client), `ui` (shadcn/ui), `shared` (utilities and hooks), `auth`, `app-components`. Tree, stack and pattern overview: `docs/lessons/project-overview.md`.
 
-Each feature lives in `apps/<app>/src/features/<feature>/` with `domain/`, `application/`, `infrastructure/`, `presentation/` and an `index.ts`; dependencies run `Presentation → Application → Domain ← Infrastructure`. Packages are consumed as source and hold no app config. Each app owns its translations; `ui`, `shared` and `api` take translated strings as props.
+Each feature lives in `apps/<app>/src/features/<feature>/` with `domain/`, `application/`, `infrastructure/`, `presentation/` and an `index.ts`; dependencies run `Presentation → Application → Domain ← Infrastructure`. Packages are consumed as source and hold no app config. Each app owns its translations; `packages/ui` components take translated strings as props.
 
 ## Invariants
 
