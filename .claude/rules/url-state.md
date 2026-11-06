@@ -2,11 +2,12 @@
 paths:
   - "apps/*/src/features/*/application/**"
   - "apps/*/src/features/*/domain/searchParams.ts"
+  - "**/presentation/**/*.tsx"
 ---
 
 # URL state
 
-Loaded when a feature's application code or URL parsers are read. Each line is the rule; the link is the full text.
+Loaded when a feature's application code, URL parsers or a component are read. Each line is the rule; the link is the full text.
 
 - **Filters, search, pagination, tabs, sort, view mode and shareable panel state go in the URL with `useQueryStates` from `nuqs`, not `useState`.** → `docs/lessons/url-state.md` (When to Use nuqs vs useState)
 - **Keep `useState` only for what no URL should hold**: chat messages, file attachments, animation progress, TanStack Table internals, form input before submit. → `docs/lessons/url-state.md` (When to Use nuqs vs useState)

@@ -13,7 +13,7 @@ Each feature lives in `apps/<app>/src/features/<feature>/` with `domain/`, `appl
 ## Invariants
 
 - **Production is live.** Run nothing against the production database or a deployed service unless the owner asks in this conversation; `/supabase-wipe` and `pnpm e2e:prod` count. Runbooks: `docs/production-incident-playbook.md`, `docs/production-e2e.md`.
-- **Do not commit, push, merge, rebase, reset, amend, tag, delete a branch, drop a stash or clean unless the user says so in words** ("commit this", "push"). "Looks good", "ok" and "done" are not permission, and neither is moving on. Do not offer either: list what changed and wait. Invoking a skill such as `/commit-push` is the ask for that skill. → `docs/lessons/git-safety.md`, `docs/lessons/commit-policy.md`
+- **Do not commit, push, force push, merge, rebase, reset, amend, cherry-pick, tag, delete a branch, drop a stash or clean unless the user says so in words** ("commit this", "push"). "Looks good", "ok" and "done" are not permission, and neither is moving on. Do not ask "should I commit?": list what changed and wait. Never force push `main` or `develop`. Invoking a skill such as `/commit-push` is explicit permission to start it, but individual git operations inside it may still need confirmation. → `docs/lessons/git-safety.md`, `docs/lessons/commit-policy.md`
 - **Ask first before switching or creating a branch, stashing or pulling**; these change the user's working state. Status, diff, log, show, blame and fetch need no ask. → `docs/lessons/git-safety.md`
 - **Branch from `develop` as `type/GH-n_Title` and PR into `develop`.** Only `release/*` and `fix/*` may target `main`, and a `fix/*` target is the user's choice. PR subject at most 80 characters. Full steps: `/git-workflow`.
 - **Secrets stay in `.secrets` and `.env.local`, never in git.** `pnpm sync-secrets` pulls from GitHub and overwrites `.secrets`; it does not publish. → `docs/lessons/telegram-notifications.md`
@@ -52,7 +52,7 @@ Environment reference: `docs/environment.md`. Debug viewer: http://localhost:505
 | `pnpm supabase:reset`   | Reset local Supabase DB                 |
 | `pnpm sync-secrets`     | Sync `.secrets` from GitHub             |
 
-Gates CI runs that are worth running first: `pnpm format:check`, `pnpm check:style`, `pnpm check:boundaries`, `pnpm check:doc-refs`, `pnpm check:tools`.
+**Before calling work finished, run in this order: `pnpm format:check`, `pnpm lint` (no warnings allowed), `pnpm typecheck`, `pnpm test`, `pnpm build`.** Other gates CI runs: `pnpm check:style`, `pnpm check:boundaries`, `pnpm check:doc-refs`, `pnpm check:tools`. → `docs/lessons/build-checks.md`
 
 | App      | Port | Purpose                           |
 | -------- | ---- | --------------------------------- |
