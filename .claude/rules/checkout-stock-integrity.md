@@ -1,6 +1,11 @@
 ---
 paths:
-  - "apps/store/**/cart/**"
+  - "apps/store/**/*cart*"
+  - "apps/store/tests/groupBySeller.test.ts"
+  - "apps/store/src/features/products/domain/types.ts"
+  - "apps/store/src/features/products/presentation/components/ProductCard.tsx"
+  - "apps/store/src/features/products/presentation/components/ProductDetail/HeroSection.tsx"
+  - "packages/shared/src/*/cart.ts"
   - "apps/*/e2e/*checkout*"
   - "apps/payments/**"
   - "supabase/migrations/**"
