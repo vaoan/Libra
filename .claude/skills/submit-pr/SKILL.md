@@ -17,7 +17,7 @@ description: Submit a pull request to the target branch. Handles commit creation
 > - Wait for explicit user request
 > - **NEVER use `--no-verify` on any git command** (commit, push, merge). All hooks must run.
 
-See [Git Safety Rule](../../rules/git-safety.md)
+See [Git Safety Rule](../../../docs/lessons/git-safety.md)
 
 ---
 
@@ -59,7 +59,7 @@ Push and create PR
 
 ## Branch Targeting
 
-> **See [Branch Targeting Rules](../../rules/git-workflow.md#critical-rule-branch-targeting) for complete documentation.**
+> **See [Branch Targeting Rules](../../../docs/lessons/git-workflow.md#critical-rule-branch-targeting) for complete documentation.**
 
 **Quick reference:**
 
@@ -756,5 +756,5 @@ Good PR descriptions include:
 ## Related
 
 - [Start Task](../start-task/SKILL.md) - `/start-task` to create branches
-- [Git Workflow](../../rules/git-workflow.md) - Branch naming and targeting conventions
-- [Git Safety](../../rules/git-safety.md) - Git safety and commit guidelines
+- [Git Workflow](../../../docs/lessons/git-workflow.md) - Branch naming and targeting conventions
+- [Git Safety](../../../docs/lessons/git-safety.md) - Git safety and commit guidelines

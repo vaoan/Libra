@@ -474,7 +474,7 @@ A definition is any of the following documented in AI config files:
 
 Use conventional commits...
 
-# In .claude/rules/git-workflow.md:
+# In docs/lessons/git-workflow.md:
 
 ## Commit Format
 
@@ -494,11 +494,11 @@ Use conventional commits... # DUPLICATE - same concept!
 
 ## Git Workflow
 
-See [Git Workflow Rule](.claude/rules/git-workflow.md)
+See [Git Workflow Rule](docs/lessons/git-workflow.md)
 
 # In .claude/skills/submit-pr/SKILL.md:
 
-Follow the [commit conventions](../../rules/git-workflow.md#commit-messages)
+Follow the [commit conventions](../../../docs/lessons/git-workflow.md#commit-messages)
 ```
 
 **For each duplicate found, note:**
@@ -534,7 +534,7 @@ Files use kebab-case...
 
 ## Naming Conventions
 
-Follow the [Naming Conventions Rule](../../rules/naming-conventions.md).
+Follow the [Naming Conventions Rule](../../../docs/lessons/naming-conventions.md).
 ```
 
 **Action 2: Extract to new file**
@@ -611,8 +611,8 @@ When `--extract` flag is provided, automatically apply DRY refactoring:
 
 | Content Type         | Extract To                                         | Reference Format             |
 | -------------------- | -------------------------------------------------- | ---------------------------- |
-| Naming convention    | `.claude/rules/naming-conventions.md`              | `[Naming Conventions](path)` |
-| Git workflow         | `.claude/rules/git-workflow.md`                    | `[Git Workflow](path)`       |
+| Naming convention    | `docs/lessons/naming-conventions.md`               | `[Naming Conventions](path)` |
+| Git workflow         | `docs/lessons/git-workflow.md`                     | `[Git Workflow](path)`       |
 | Architecture pattern | `.claude/rules/architecture.md` or `.claude/docs/` | `[Architecture](path)`       |
 | Component pattern    | `.claude/rules/component-patterns.md`              | `[Component Patterns](path)` |
 | Shared code example  | `.claude/docs/examples/`                           | `[Example](path)`            |
@@ -909,12 +909,12 @@ All markdown files in `.claude/`, `CLAUDE.md`
 
 - **Defined in:**
   - `CLAUDE.md:156` (brief)
-  - `.claude/rules/git-workflow.md:89` (comprehensive)
+  - `docs/lessons/git-workflow.md:89` (comprehensive)
   - `.claude/skills/submit-pr/SKILL.md:45` (partial)
 - **Severity:** 🔴 High
 - **Issue:** Same concept explained 3 times with slight variations
 - **Recommended action:** Keep git-workflow.md as authoritative, reference from others
-- **Authoritative source:** `.claude/rules/git-workflow.md`
+- **Authoritative source:** `docs/lessons/git-workflow.md`
 
 #### DRY Summary
 
@@ -947,12 +947,12 @@ All markdown files in `.claude/`, `CLAUDE.md`
 #### 1. CLAUDE.md
 
 - Line 156: Removed inline commit format definition
-- Added: `See [Commit Format](.claude/rules/git-workflow.md#commit-messages)`
+- Added: `See [Commit Format](docs/lessons/git-workflow.md#commit-messages)`
 
 #### 2. .claude/skills/submit-pr/SKILL.md
 
 - Line 45-52: Removed commit format section
-- Added: `Follow [commit conventions](../../rules/git-workflow.md#commit-messages)`
+- Added: `Follow [commit conventions](../../../docs/lessons/git-workflow.md#commit-messages)`
 
 #### 3. .claude/rules/component-patterns.md
 
@@ -1159,12 +1159,12 @@ OUTPUT FORMAT (save this JSON to file):
       "concept": "Commit message format",
       "locations": [
         { "file": "CLAUDE.md", "line": 156, "type": "brief" },
-        { "file": ".claude/rules/git-workflow.md", "line": 89, "type": "comprehensive" },
+        { "file": "docs/lessons/git-workflow.md", "line": 89, "type": "comprehensive" },
         { "file": ".claude/skills/submit-pr/SKILL.md", "line": 45, "type": "partial" }
       ],
       "severity": "high",
       "recommendedAction": "reference",
-      "authoritativeSource": ".claude/rules/git-workflow.md"
+      "authoritativeSource": "docs/lessons/git-workflow.md"
     }
   ],
   "inconsistencies": [
@@ -1193,7 +1193,7 @@ OUTPUT FORMAT (save this JSON to file):
       "file": ".claude/skills/example/SKILL.md",
       "line": 30,
       "content": "Inline naming convention",
-      "shouldReference": ".claude/rules/naming-conventions.md"
+      "shouldReference": "docs/lessons/naming-conventions.md"
     }
   ],
   "summary": {
@@ -1346,9 +1346,9 @@ The script is heavily documented with explanations for non-Python developers.
 
 - [Project Intelligence](../project-intelligence/SKILL.md) - Deep multi-agent project analysis
 - [Fix Audit](../fix-ai-documents-audit/SKILL.md) - Fix issues from audit reports
-- [MCP-First Rule](../../rules/mcp-first.md) - Enforces MCP tool usage
+- [MCP-First Rule](../../../docs/lessons/mcp-first.md) - Enforces MCP tool usage
 - [MCP-First Agent](../../agents/mcp-first/AGENT.md) - Proactive MCP checking
-- [Portability Rule](../../rules/portability.md) - Ensures AI config is portable
+- [Portability Rule](../../../docs/lessons/portability.md) - Ensures AI config is portable
 - [AI Docs DRY](../../rules/ai-docs-dry.md) - Single source of truth for AI docs
-- [DRY Principle](../../rules/dry-principle.md) - Don't Repeat Yourself in code
+- [DRY Principle](../../../docs/lessons/dry-principle.md) - Don't Repeat Yourself in code
 - [MCP Standards](../../rules/mcp-standards.md) - Portable MCP server requirements

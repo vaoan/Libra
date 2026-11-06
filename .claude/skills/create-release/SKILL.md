@@ -16,7 +16,7 @@ description: Create a production release by merging develop into main with a PR 
 > - Do NOT suggest running this skill
 > - This creates a PR that targets PRODUCTION (main)
 
-See [Git Safety Rule](../../rules/git-safety.md)
+See [Git Safety Rule](../../../docs/lessons/git-safety.md)
 
 ---
 
@@ -439,4 +439,4 @@ No new commits since last release.
 
 - [Merge PR](../merge-pr/SKILL.md) - Merge any PR
 - [Submit PR](../submit-pr/SKILL.md) - Submit feature PRs to develop
-- [Git Workflow](../../rules/git-workflow.md) - Branch conventions
+- [Git Workflow](../../../docs/lessons/git-workflow.md) - Branch conventions

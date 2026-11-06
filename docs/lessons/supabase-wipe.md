@@ -172,3 +172,5 @@ Expected tables after migration: `check_in_audit`, `check_ins`, `events`, `order
 - `.secrets` — PATs and service role keys
 - `supabase/migrations/` — the baseline migration (earlier files were squashed into it)
 - [Git Safety](.claude/rules/git-safety.md) — Never commit secrets
+
+<!-- cspell:ignore pkey -- this file moved here verbatim from .claude/rules/, which cspell does not scan. -->

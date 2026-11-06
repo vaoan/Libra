@@ -16,7 +16,7 @@ description: Sync a feature branch with develop using safe, guided steps.
 > - Do NOT suggest running this skill unless explicitly asked
 > - May create merge commits
 
-See [Git Safety Rule](../../rules/git-safety.md)
+See [Git Safety Rule](../../../docs/lessons/git-safety.md)
 
 ---
 
@@ -382,14 +382,14 @@ mcp__git__git_diff({
 
 **Review changed files against project rules:**
 
-| Rule                                                            | Check For                                                              |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| [Single Source of Truth](../../rules/single-source-of-truth.md) | Non-semantic colors (e.g., `text-green-500` instead of `text-success`) |
-| [No Hardcoding](../../rules/no-hardcoding.md)                   | Magic numbers, hardcoded strings, inline types                         |
-| [Architecture](../../rules/architecture.md)                     | Relative imports crossing layers (`../domain`), cross-feature imports  |
-| [Naming Conventions](../../rules/naming-conventions.md)         | Incorrect file/variable naming                                         |
-| [Component Patterns](../../rules/component-patterns.md)         | Missing `'use client'` directive, wrong component structure            |
-| [One Component Per File](../../rules/one-component-per-file.md) | Multiple React components in one `.tsx` file                           |
+| Rule                                                              | Check For                                                              |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [Single Source of Truth](../../rules/single-source-of-truth.md)   | Non-semantic colors (e.g., `text-green-500` instead of `text-success`) |
+| [No Hardcoding](../../../docs/lessons/no-hardcoding.md)           | Magic numbers, hardcoded strings, inline types                         |
+| [Architecture](../../rules/architecture.md)                       | Relative imports crossing layers (`../domain`), cross-feature imports  |
+| [Naming Conventions](../../../docs/lessons/naming-conventions.md) | Incorrect file/variable naming                                         |
+| [Component Patterns](../../rules/component-patterns.md)           | Missing `'use client'` directive, wrong component structure            |
+| [One Component Per File](../../rules/one-component-per-file.md)   | Multiple React components in one `.tsx` file                           |
 
 **Read each changed file and identify violations:**
 
@@ -797,14 +797,14 @@ A file passes if its **line coverage** is ≥85%.
 
 ## Rules Checked During Review
 
-| Rule                   | File                                                               | What's Checked                       |
-| ---------------------- | ------------------------------------------------------------------ | ------------------------------------ |
-| Single Source of Truth | [single-source-of-truth.md](../../rules/single-source-of-truth.md) | Semantic colors, typography          |
-| No Hardcoding          | [no-hardcoding.md](../../rules/no-hardcoding.md)                   | Magic numbers, strings, inline types |
-| Architecture           | [architecture.md](../../rules/architecture.md)                     | Import paths, layer dependencies     |
-| Naming Conventions     | [naming-conventions.md](../../rules/naming-conventions.md)         | File and variable naming             |
-| Component Patterns     | [component-patterns.md](../../rules/component-patterns.md)         | Component structure                  |
-| Testing                | [testing.md](../../rules/testing.md)                               | Test file imports                    |
+| Rule                   | File                                                                 | What's Checked                       |
+| ---------------------- | -------------------------------------------------------------------- | ------------------------------------ |
+| Single Source of Truth | [single-source-of-truth.md](../../rules/single-source-of-truth.md)   | Semantic colors, typography          |
+| No Hardcoding          | [no-hardcoding.md](../../../docs/lessons/no-hardcoding.md)           | Magic numbers, strings, inline types |
+| Architecture           | [architecture.md](../../rules/architecture.md)                       | Import paths, layer dependencies     |
+| Naming Conventions     | [naming-conventions.md](../../../docs/lessons/naming-conventions.md) | File and variable naming             |
+| Component Patterns     | [component-patterns.md](../../rules/component-patterns.md)           | Component structure                  |
+| Testing                | [testing.md](../../rules/testing.md)                                 | Test file imports                    |
 
 ---
 
@@ -937,6 +937,6 @@ Your branch is up to date with develop. No sync needed.
 ## Related
 
 - [Submit PR](../submit-pr/SKILL.md) - After syncing, submit your PR
-- [Git Workflow](../../rules/git-workflow.md) - Branch conventions
-- [Code Review Standards](../../rules/code-review-standards.md) - Review guidelines
+- [Git Workflow](../../../docs/lessons/git-workflow.md) - Branch conventions
+- [Code Review Standards](../../../docs/lessons/code-review-standards.md) - Review guidelines
 - [Testing Rules](../../rules/testing.md) - Test patterns and requirements

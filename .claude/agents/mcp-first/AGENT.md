@@ -157,7 +157,7 @@ Run `/ai-documents-audit` to:
 
 ### With Rules
 
-This agent enforces `.claude/rules/mcp-first.md`
+This agent enforces `docs/lessons/mcp-first.md`
 
 ## Self-Updating Behavior
 
@@ -171,5 +171,5 @@ No manual updates needed when MCPs change.
 
 ## Related
 
-- [MCP-First Rule](../../rules/mcp-first.md) - Persistent enforcement
+- [MCP-First Rule](../../../docs/lessons/mcp-first.md) - Persistent enforcement
 - [AI Documents Audit](../../skills/ai-documents-audit/SKILL.md) - MCP discovery

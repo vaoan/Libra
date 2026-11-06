@@ -868,7 +868,7 @@ re-derives them.
 check walks up from a changed file to the nearest governing note and demands an
 edit. AeleOS's root `CLAUDE.md` is 118KB of running record, so that demand is
 normal there. Libra's root `CLAUDE.md` is a portable template, and
-[portability.md](../../.claude/rules/portability.md) requires it to stay
+[portability.md](../lessons/portability.md) requires it to stay
 project-agnostic — no project names, no dated content, no running record. A
 gate that demanded an edit to it on every commit would push exactly the
 project-specific churn that rule forbids into the file the rule protects. The

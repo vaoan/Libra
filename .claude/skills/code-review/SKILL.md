@@ -178,7 +178,7 @@ See [One Component Per File Rule](../../rules/one-component-per-file.md).
 | `purple-*`  | `primary`                    |
 | `slate-*`   | `muted` / `muted-foreground` |
 
-**Key principle:** All colors must come from the theme's semantic tokens defined in `packages/ui/src/styles/colors.css`. This ensures colors adapt correctly to light/dark mode and theme changes. See [Single Source of Truth](../../rules/single-source-of-truth.md#colors-semantic-only).
+**Key principle:** All colors must come from the theme's semantic tokens defined in `packages/ui/src/styles/colors.css`. This ensures colors adapt correctly to light/dark mode and theme changes. See [Single Source of Truth](../../../docs/lessons/single-source-of-truth.md#colors-semantic-only).
 
 #### Tailwind Classes Stay Inline
 
@@ -205,7 +205,7 @@ See [One Component Per File Rule](../../rules/one-component-per-file.md).
 
 **Key principle:** Anything that exists as a CSS variable must be used as a CSS variable string directly. CSS variables are already the single source of truth in `globals.css`.
 
-See [Code Review Standards](../../rules/code-review-standards.md#tailwind-class-strings-policy) for full policies.
+See [Code Review Standards](../../../docs/lessons/code-review-standards.md#tailwind-class-strings-policy) for full policies.
 
 ## Steps
 

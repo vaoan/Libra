@@ -1,207 +1,39 @@
-# Project Documentation
+# CLAUDE.md
 
-> This document serves as the primary reference for AI assistants and developers working on this project. It is designed to be **portable** and can be used as a template for new projects.
+Guidance for Claude Code in this repository, short on purpose: each line links to the lesson that holds the full text and the reason, and lessons are read when relevant, not on every turn. Index and budget: `docs/lessons/README.md`.
 
----
+## What Libra is
 
-## Table of Contents
+A pnpm workspace monorepo: a store and payment platform selling products, services, tickets, promos and coupons. It is **in production** (`docs/production-status.md`).
 
-- [Monorepo Overview](#monorepo-overview)
-- [Architecture](#architecture)
-- [Technology Stack](#technology-stack)
-- [Patterns & Conventions](#patterns--conventions)
-- [Design Principles](#design-principles)
-- [Quick Reference](#quick-reference)
+Six Next.js 16 apps in `apps/`: `store` (the reference standard every other app complies with), `landing`, `payments`, `admin`, `auth`, `studio`. Shared packages in `packages/`: `api` (generated hooks, types, HTTP client), `ui` (shadcn/ui), `shared` (utilities and hooks), `auth`, `app-components`. Tree, stack and pattern overview: `docs/lessons/project-overview.md`.
 
----
+Each feature lives in `apps/<app>/src/features/<feature>/` with `domain/`, `application/`, `infrastructure/`, `presentation/` and an `index.ts`; dependencies run `Presentation → Application → Domain ← Infrastructure`. Packages are consumed as source and hold no app config. Each app owns its translations; `packages/ui` components take translated strings as props.
 
-## Monorepo Overview
+## Invariants
 
-This is a **pnpm workspace monorepo** — a store and payment platform for selling products, services, tickets, promos, coupons, and other goods.
+- **Production is live.** Run nothing against the production database or a deployed service unless the owner asks in this conversation; `/supabase-wipe` and `pnpm e2e:prod` count. Runbooks: `docs/production-incident-playbook.md`, `docs/production-e2e.md`.
+- **Do not commit, push, force push, merge, rebase, reset, amend, cherry-pick, tag, delete a branch, drop a stash or clean unless the user says so in words** ("commit this", "push"). "Looks good", "ok" and "done" are not permission, and neither is moving on. Do not ask "should I commit?": list what changed and wait. Never force push `main` or `develop`. Invoking a skill such as `/commit-push` is explicit permission to start it, but individual git operations inside it may still need confirmation. → `docs/lessons/git-safety.md`, `docs/lessons/commit-policy.md`
+- **Ask first before switching or creating a branch, stashing or pulling**; these change the user's working state. Status, diff, log, show, blame and fetch need no ask. → `docs/lessons/git-safety.md`
+- **Branch from `develop` as `type/GH-n_Title` and PR into `develop`.** Only `release/*` and `fix/*` may target `main`, and a `fix/*` target is the user's choice. PR subject at most 80 characters. Full steps: `/git-workflow`.
+- **Secrets stay in `.secrets` and `.env.local`, never in git.** `pnpm sync-secrets` pulls from GitHub and overwrites `.secrets`; it does not publish. → `docs/lessons/telegram-notifications.md`
+- **A sub-agent writes its result to `.ai-context/reports/{type}_{YYYY-MM-DDTHH-MM-SS}.json` before returning, and returns the path**, so the work survives an orchestrator that dies. Never a bare return, or a name without the timestamp. → `docs/lessons/multi-agent-persistence.md`
 
-### Structure
+## Principles, as they apply here
 
-```
-libra/
-├── apps/                          # Applications
-│   ├── store/                     # Main storefront (REFERENCE STANDARD)
-│   ├── landing/                   # Public landing page
-│   ├── payments/                  # Payment processing
-│   ├── admin/                     # Back-office admin panel (must comply with store)
-│   ├── auth/                      # Authentication provider
-│   └── studio/                    # Seller dashboard
-├── packages/                      # Shared packages
-│   ├── api/                       # Generated API hooks, types, HTTP client
-│   ├── ui/                        # Shared UI components (shadcn/ui)
-│   ├── shared/                    # Shared utilities and hooks
-│   ├── auth/                      # Auth domain logic, providers
-│   └── app-components/            # App-level shared components (uses next-intl)
-├── scripts/                       # Dev tooling scripts
-│   ├── start.mjs                  # Entry point for pnpm dev
-│   ├── build.mjs                  # Entry point for pnpm build
-│   ├── load-env.mjs               # Env loader with $secret: resolution
-│   ├── lint-envs.mjs              # Verifies all .env.X files are in sync
-│   └── supabase-cmd.mjs           # Supabase CLI wrapper
-├── orval.config.ts                # Orval code generation config
-├── eslint.config.mjs              # Monorepo-wide ESLint
-├── package.json                   # Root workspace config
-└── pnpm-workspace.yaml            # Workspace definition
-```
+- **SOLID**: one concern per component, hook and service. Components never call APIs or `localStorage` directly: a hook abstracts it. Vary behaviour through props and composition, and split a large hook return into composable hooks. → `docs/lessons/solid-principles.md`
+- **DRY**: extract knowledge duplicated in two places (a validation rule, an API URL, a type) now; structure only at the third repeat. Tailwind class strings, `var(--x)` strings and explicit test bodies are not violations. → `docs/lessons/dry-principle.md`
+- **KISS**: when DRY and KISS conflict, KISS wins. A DRY finding is a suggestion unless the duplication causes bugs or real maintenance risk, and small local duplication is fine. → `docs/lessons/kiss-principle.md`
+- **No hardcoding**: magic numbers and status or role strings go in `domain/constants.ts`, types in `domain/types/`, mock data under `src/mocks/`, runtime config in `shared/infrastructure/config/`. ESLint enforces magic numbers outside constants files. Array indices, Tailwind classes and test descriptions may stay inline. → `docs/lessons/no-hardcoding.md`
+- **Libraries over hand-rolled**: check first for `cookies-next`, `next-intl`, `react-hook-form`, `zod`/`valibot`, `date-fns`/`dayjs`, `@tanstack/react-query`, `@tanstack/react-table`, `nuqs`, Radix/shadcn, `clsx` + `tailwind-merge`, `lucide-react`, `msw`. Do not silence a lint warning to use a raw API. Write custom code for domain logic, one-liners, or thin wrappers. → `docs/lessons/libraries-over-manual-code.md`
+- **Portability**: the template job moved to Orrery, so these instructions may name Libra's own apps and paths. Real secrets, personal data and internal URLs still stay out. → `docs/lessons/portability.md`
+- **MCP first**: `.mcp.json` registers `git`, `github`, `playwright`, `chrome-devtools`, `shadcn` and `next-devtools`. Prefer an `mcp__*` tool, then Read/Edit/Grep, then Bash for what has neither (install, build, lint). → `docs/lessons/mcp-first.md`
+- **Naming**: components and types PascalCase; hooks `use*`, utils and constants files camelCase; feature folders kebab-case; handlers `handle*`, callback props `on*`, booleans `is/has/can/should`; exported constants SCREAMING_SNAKE. shadcn files in `components/ui/` stay lowercase. Imports run React/Next, third party, shared, feature, then types. → `docs/lessons/naming-conventions.md`
+- **Telegram alerts**: adding a thread means `.secrets`, the `env:` block in `sync-secrets.yml`, and `gh secret set` with the value on stdin. → `docs/lessons/telegram-notifications.md`
 
-### Key Principles
+## Commands
 
-| Principle                 | Description                                     |
-| ------------------------- | ----------------------------------------------- |
-| **Store is the standard** | All apps must comply with store's rules         |
-| **Packages are pure**     | No i18n, no business logic, no app config       |
-| **Props injection**       | Apps inject translations into shared components |
-| **Single ESLint**         | One config enforces rules across all workspaces |
-
-> **Full documentation:** See [Monorepo Architecture](.claude/rules/monorepo-architecture.md) for complete monorepo patterns, package rules, and i18n strategy.
-
----
-
-## Architecture
-
-This project follows **Clean Architecture** at two levels: repository-level (packages → apps dependency direction) and application-level (feature-based organization with domain/application/infrastructure/presentation layers).
-
-**Layer dependency rule:** `Presentation → Application → Domain ← Infrastructure`
-
-> **Full documentation:** See [Architecture Rules](.claude/rules/architecture.md) for layer details, feature structure, and import rules.
-
----
-
-## Technology Stack
-
-### Core
-
-| Technology     | Purpose                         |
-| -------------- | ------------------------------- |
-| **Next.js 16** | React framework with App Router |
-| **TypeScript** | Type safety                     |
-| **React 19**   | UI library                      |
-| **pnpm**       | Package manager with workspaces |
-
-### UI & Styling
-
-| Technology          | Purpose                  |
-| ------------------- | ------------------------ |
-| **Tailwind CSS v4** | Utility-first CSS        |
-| **shadcn/ui**       | Component primitives     |
-| **Radix UI**        | Accessible UI primitives |
-
-### State & Data
-
-| Technology         | Purpose                            |
-| ------------------ | ---------------------------------- |
-| **TanStack Query** | Server state management            |
-| **nuqs**           | Type-safe URL state management     |
-| **Axios**          | REST API client                    |
-| **Orval**          | API code generation → packages/api |
-
-### Internationalization
-
-| Technology    | Purpose          |
-| ------------- | ---------------- |
-| **next-intl** | i18n for Next.js |
-
-### Testing
-
-| Technology          | Purpose           |
-| ------------------- | ----------------- |
-| **Vitest**          | Unit testing      |
-| **Testing Library** | Component testing |
-| **Playwright**      | E2E testing       |
-
----
-
-## Patterns & Conventions
-
-### File Naming
-
-| Type       | Convention                  | Example         |
-| ---------- | --------------------------- | --------------- |
-| Components | PascalCase                  | `LoginForm.tsx` |
-| Hooks      | camelCase with `use` prefix | `useAuth.ts`    |
-| Utilities  | camelCase                   | `formatDate.ts` |
-| Types      | PascalCase                  | `UserTypes.ts`  |
-
-See [Naming Conventions](.claude/rules/naming-conventions.md) for complete rules.
-
-### Import Aliases
-
-Apps use `@/*` for internal imports and `ui`, `api`, `shared` for workspace packages. Always prefer absolute imports over relative for cross-layer references.
-
-### i18n: Props Injection Pattern
-
-Shared packages have NO i18n. Apps inject translated strings as props into shared components.
-
----
-
-## Design Principles
-
-This project strictly follows **DRY**, **SOLID**, and **KISS** principles.
-
-### DRY - Don't Repeat Yourself
-
-| Do                                  | Don't                       |
-| ----------------------------------- | --------------------------- |
-| Extract repeated logic to utilities | Copy-paste code blocks      |
-| Create shared types                 | Define same interface twice |
-| Use constants for magic values      | Repeat strings/numbers      |
-
-### SOLID Principles
-
-| Principle                 | Application                                    |
-| ------------------------- | ---------------------------------------------- |
-| **S**ingle Responsibility | One component/hook = one purpose               |
-| **O**pen/Closed           | Extend via props/composition, not modification |
-
-<!-- cspell:ignore ependency -- the bold marker in **D**ependency splits the
-     word, and "ependency" is the half that is left. **S**ingle and **O**pen
-     survive the same treatment only because "ingle" and "pen" are words. -->
-
-| **D**ependency Inversion | Depend on abstractions (hooks), not implementations |
-
-### KISS - Keep It Simple
-
-Prefer the simplest solution. If DRY and KISS conflict, favor KISS.
-
-### Libraries Over Manual Code
-
-**Always prefer well-known, community-backed libraries over hand-rolled code.** If a battle-tested package exists for the problem, use it. Do not write custom implementations for solved problems.
-
-| Do                                             | Don't                                    |
-| ---------------------------------------------- | ---------------------------------------- |
-| Use `cookies-next` for cookie management       | Write raw `document.cookie` manipulation |
-| Use `next-intl` for i18n                       | Build a custom translation system        |
-| Use `zod` / `valibot` for validation           | Write manual type guards for form data   |
-| Use `date-fns` / `dayjs` for date manipulation | Write custom date parsing/formatting     |
-| Use `react-hook-form` for forms                | Build custom form state management       |
-| Use established Radix/shadcn primitives        | Build custom accessible UI from scratch  |
-
-**When to write custom code:** Only when no suitable library exists, when the library would be massive overkill for a trivial task, or when the problem is domain-specific business logic that no library could solve.
-
----
-
-## Quick Reference
-
-### Environment Variables
-
-See [Environment System](docs/environment.md) for the full reference.
-
-| Command                    | Description                             |
-| -------------------------- | --------------------------------------- |
-| `pnpm dev`                 | Start all apps with `.env.dev`          |
-| `pnpm dev --env test`      | Start all apps with `.env.test`         |
-| `pnpm build`               | Build with `.env.prod`                  |
-| `pnpm build --env staging` | Build with `.env.staging`               |
-| `pnpm lint:env`            | Verify all env files have the same keys |
-| `pnpm sync-secrets`        | Sync `.secrets` from GitHub             |
-
-Debug viewer: http://localhost:5050/admin/en/env (requires `ENV_DEBUG=true` in env file)
-
-### Workspace Commands
+Environment reference: `docs/environment.md`. Debug viewer: http://localhost:5050/admin/en/env (requires `ENV_DEBUG=true` in env file)
 
 | Command                 | Description                             |
 | ----------------------- | --------------------------------------- |
@@ -220,7 +52,7 @@ Debug viewer: http://localhost:5050/admin/en/env (requires `ENV_DEBUG=true` in e
 | `pnpm supabase:reset`   | Reset local Supabase DB                 |
 | `pnpm sync-secrets`     | Sync `.secrets` from GitHub             |
 
-### App Ports
+**Before calling work finished, run in this order: `pnpm format:check`, `pnpm lint` (no warnings allowed), `pnpm typecheck`, `pnpm test`, `pnpm build`.** Other gates CI runs: `pnpm check:style`, `pnpm check:boundaries`, `pnpm check:doc-refs`, `pnpm check:tools`. → `docs/lessons/build-checks.md`
 
 | App      | Port | Purpose                           |
 | -------- | ---- | --------------------------------- |
@@ -231,84 +63,10 @@ Debug viewer: http://localhost:5050/admin/en/env (requires `ENV_DEBUG=true` in e
 | payments | 5005 | Payment processing (`/payments`)  |
 | studio   | 5006 | Seller dashboard (`/studio`)      |
 
-### Creating Features (in apps)
+## Where the rules live
 
-1. Create folder: `apps/[app]/src/features/[feature-name]/`
-2. Add layers: `domain/`, `application/`, `infrastructure/`, `presentation/`
-3. Create `index.ts` with public exports
-4. Add route in `app/` that imports from feature
+**`.claude/rules/`**, loaded only when a matching file is read: `testing`, `e2e-selectors`, `storybook`, `tailwind`, `css-consistency`, `single-source-of-truth`, `component-patterns`, `one-component-per-file`, `url-state`, `architecture`, `monorepo-architecture`, `checkout-stock-integrity`, `generated-code-policy`, `mcp-standards`, `ai-docs-dry`, `build-checks`.
 
-### Adding to Shared Packages
+**`.claude/skills/`**, loaded when invoked. Procedures from the old rules: `/git-workflow`, `/code-review-standards`, `/supabase-wipe` (the owner runs it). Others include `/create-feature`, `/create-component`, `/start-task`, `/submit-pr`, `/full-review`, `/verify-code`, `/review-branch`, `/e2e-eval`; all of them: `.claude/skills/README.md`.
 
-Before adding to a package, verify:
-
-- Used by 2+ apps
-- No i18n needed
-- No app config needed
-- Pure (no side effects)
-
-If any fail, keep in app's `shared/` folder instead.
-
----
-
-## Related Documentation
-
-### Core Rules
-
-- [Monorepo Architecture](.claude/rules/monorepo-architecture.md)
-- [Architecture Rules](.claude/rules/architecture.md)
-- [SOLID Principles](.claude/rules/solid-principles.md)
-- [DRY Principle](.claude/rules/dry-principle.md)
-- [KISS Principle](.claude/rules/kiss-principle.md)
-- [Libraries Over Manual Code](.claude/rules/libraries-over-manual-code.md)
-
-### Code Quality
-
-- [Naming Conventions](.claude/rules/naming-conventions.md)
-- [Component Patterns](.claude/rules/component-patterns.md)
-- [No Hardcoding](.claude/rules/no-hardcoding.md)
-- [Single Source of Truth](.claude/rules/single-source-of-truth.md)
-- [Tailwind CSS](.claude/rules/tailwind.md)
-- [CSS Consistency](.claude/rules/css-consistency.md)
-
-### Testing & Quality
-
-- [Testing](.claude/rules/testing.md)
-- [Checkout Stock Integrity](.claude/rules/checkout-stock-integrity.md)
-- [Checkout Stock Integrity Standard](docs/standards/checkout-stock-integrity.md)
-- [Quality Gates](docs/standards/quality-gates.md) — what the checks verify, what is staged, and the gates that were found not to work
-- [E2E Selectors](.claude/rules/e2e-selectors.md)
-- [Build Checks](.claude/rules/build-checks.md)
-- [Code Review Standards](.claude/rules/code-review-standards.md)
-
-### Git & Workflow
-
-- [Git Workflow](.claude/rules/git-workflow.md)
-- [Git Safety](.claude/rules/git-safety.md)
-
-### Database & Infrastructure
-
-- [Supabase Full Wipe & Re-Migration](.claude/rules/supabase-wipe.md) — PAT tokens, drop schema, apply migrations for dev/prod
-
-### AI Configuration
-
-- [Generated Code Policy](.claude/rules/generated-code-policy.md)
-- [AI Docs DRY](.claude/rules/ai-docs-dry.md)
-- [Portability](.claude/rules/portability.md)
-
-### Skills
-
-- [Create Feature](.claude/skills/create-feature/SKILL.md) - `/create-feature [name]`
-- [Create Component](.claude/skills/create-component/SKILL.md) - `/create-component [name]`
-- [Start Task](.claude/skills/start-task/SKILL.md) - `/start-task <ticket> [type]`
-- [Submit PR](.claude/skills/submit-pr/SKILL.md) - `/submit-pr`
-- [Full Review](.claude/skills/full-review/SKILL.md) - `/full-review`
-- [Verify Code](.claude/skills/verify-code/SKILL.md) - `/verify-code`
-- [Review Branch](.claude/skills/review-branch/SKILL.md) - `/review-branch`
-- [E2E Eval](.claude/skills/e2e-eval/SKILL.md) - `/e2e-eval [env] [options]`
-
-See all skills in `.claude/skills/` folder.
-
----
-
-> **Portability Notice**: This document and the entire `.claude/` folder are designed to be **100% portable**. See [Portability Rule](.claude/rules/portability.md) for guidelines.
+**`docs/lessons/`**, read when relevant: the full text of every rule, plus `project-overview.md`. **`docs/standards/`**: `quality-gates.md` says what the checks really verify and which gates were found not to work; `checkout-stock-integrity.md` holds the stock and payment invariant. **`docs/adr/`** records why a boundary exists.

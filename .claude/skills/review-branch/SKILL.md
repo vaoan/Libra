@@ -137,18 +137,18 @@ Output a summary table:
 
 ## Review Checklist Reference
 
-See [Code Review Standards](../../rules/code-review-standards.md) for the full checklist used by each review category.
+See [Code Review Standards](../../../docs/lessons/code-review-standards.md) for the full checklist used by each review category.
 
 Key rules:
 
 - [Architecture](../../rules/architecture.md) — layer dependencies, import rules
-- [SOLID](../../rules/solid-principles.md) — single responsibility, dependency inversion
-- [DRY](../../rules/dry-principle.md) — knowledge duplication, rule of three
-- [KISS](../../rules/kiss-principle.md) — simplest solution, KISS > DRY when they conflict
+- [SOLID](../../../docs/lessons/solid-principles.md) — single responsibility, dependency inversion
+- [DRY](../../../docs/lessons/dry-principle.md) — knowledge duplication, rule of three
+- [KISS](../../../docs/lessons/kiss-principle.md) — simplest solution, KISS > DRY when they conflict
 - [Component Patterns](../../rules/component-patterns.md) — one component per file, structure
-- [Naming](../../rules/naming-conventions.md) — file naming, variable naming
+- [Naming](../../../docs/lessons/naming-conventions.md) — file naming, variable naming
 - [Tailwind](../../rules/tailwind.md) — semantic colors, class ordering
-- [No Hardcoding](../../rules/no-hardcoding.md) — constants, types, mocks in proper locations
+- [No Hardcoding](../../../docs/lessons/no-hardcoding.md) — constants, types, mocks in proper locations
 - [Testing](../../rules/testing.md) — TDD, assertion quality, mock patterns
 - [Single Source of Truth](../../rules/single-source-of-truth.md) — colors, typography, i18n
 
