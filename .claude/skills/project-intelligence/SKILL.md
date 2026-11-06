@@ -80,7 +80,7 @@ This skill uses **6 specialized agents** running in parallel:
 
 > **Every sub-agent MUST persist its output to a timestamped file before returning.**
 
-See [Multi-Agent Persistence Rule](../../rules/multi-agent-persistence.md) for full details.
+See [Multi-Agent Persistence Rule](../../../docs/lessons/multi-agent-persistence.md) for full details.
 
 #### File Location
 

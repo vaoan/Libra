@@ -16,7 +16,7 @@ description: Review PR comments and address them with explicit user approvals.
 > - User must explicitly say "commit" before committing
 > - Do NOT auto-commit after making fixes
 
-See [Git Safety Rule](../../rules/git-safety.md)
+See [Git Safety Rule](../../../docs/lessons/git-safety.md)
 
 ---
 
@@ -701,4 +701,4 @@ Options:
 
 - [Submit PR](../submit-pr/SKILL.md) - `/submit-pr` to create PRs
 - [Merge PR](../merge-pr/SKILL.md) - `/merge-pr` to merge PRs
-- [Git Workflow](../../rules/git-workflow.md) - Branch and merge conventions
+- [Git Workflow](../../../docs/lessons/git-workflow.md) - Branch and merge conventions

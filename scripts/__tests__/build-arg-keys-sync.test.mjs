@@ -7,7 +7,7 @@
  * - docker/ci/Dockerfile — the `ARG NEXT_PUBLIC_*` declarations
  *
  * This is the structural guard called for by
- * .claude/rules/single-source-of-truth.md and dry-principle.md: where a
+ * .claude/rules/single-source-of-truth.md and docs/lessons/dry-principle.md: where a
  * duplicate genuinely cannot be eliminated (YAML/Dockerfile have no module
  * system), it must at least fail loudly the moment it diverges from the
  * source of truth, instead of silently shipping an image missing a key

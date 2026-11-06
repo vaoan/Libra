@@ -16,7 +16,7 @@ description: Switch to develop, sync with remote, and optionally delete the prev
 > - Do NOT suggest running this skill unless explicitly asked
 > - Branch deletion requires user confirmation
 
-See [Git Safety Rule](../../rules/git-safety.md)
+See [Git Safety Rule](../../../docs/lessons/git-safety.md)
 
 ---
 
@@ -443,4 +443,4 @@ The following branches are **NEVER offered for deletion**:
 - [Merge PR](../merge-pr/SKILL.md) - `/merge-pr` to merge PRs
 - [Submit PR](../submit-pr/SKILL.md) - `/submit-pr` to create PRs
 - [Start Task](../start-task/SKILL.md) - `/start-task` to begin new work
-- [Git Workflow](../../rules/git-workflow.md) - Branch conventions
+- [Git Workflow](../../../docs/lessons/git-workflow.md) - Branch conventions

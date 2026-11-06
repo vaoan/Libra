@@ -114,7 +114,7 @@ For each inconsistency:
 ```markdown
 # Example: Hook naming inconsistency
 
-File: .claude/rules/naming-conventions.md
+File: docs/lessons/naming-conventions.md
 Line: 138
 Issue: Says "PascalCase" but should be "camelCase"
 Fix: Edit line 138 to say "camelCase"
@@ -176,7 +176,7 @@ For high-severity duplicates:
 | Components | PascalCase           | `LoginForm.tsx` |
 | Hooks      | camelCase with `use` | `useAuth.ts`    |
 
-See [Naming Conventions](.claude/rules/naming-conventions.md) for complete guidelines.
+See [Naming Conventions](docs/lessons/naming-conventions.md) for complete guidelines.
 ```
 
 #### 5d: Fix Portability Issues
@@ -364,4 +364,4 @@ Only fixes critical-priority issues.
 
 - [AI Documents Audit](../ai-documents-audit/SKILL.md) - Generate audit reports
 - [AI Docs DRY](../../rules/ai-docs-dry.md) - DRY principle for AI docs
-- [Portability Rule](../../rules/portability.md) - Portability requirements
+- [Portability Rule](../../../docs/lessons/portability.md) - Portability requirements

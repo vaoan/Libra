@@ -17,7 +17,7 @@ The `/full-review` skill launches 11 specialized review agents in parallel to co
 
 KISS is enforced as a **guardrail** across all agents (simplicity over unnecessary abstraction). Generated files are checked for **consistency only** (typing, naming, signature/shape mismatches), never for refactor or improvement suggestions.
 
-**This skill uses the [Multi-Agent Persistence Pattern](../../rules/multi-agent-persistence.md) for crash recovery and historical tracking.**
+**This skill uses the [Multi-Agent Persistence Pattern](../../../docs/lessons/multi-agent-persistence.md) for crash recovery and historical tracking.**
 
 ---
 
@@ -66,7 +66,7 @@ KISS is enforced as a **guardrail** across all agents (simplicity over unnecessa
 
 > **Every review agent MUST persist its findings to a timestamped JSON file before returning.**
 
-See [Multi-Agent Persistence Rule](../../rules/multi-agent-persistence.md) for full details.
+See [Multi-Agent Persistence Rule](../../../docs/lessons/multi-agent-persistence.md) for full details.
 
 #### File Location
 
@@ -262,7 +262,7 @@ Parse each JSON file and collect all issues.
 
 Write comprehensive report to `.ai-context/reviews/{review_id}_review.md` following the authoritative format in:
 
-See [Report Format](../../rules/code-review-standards.md#report-format).
+See [Report Format](../../../docs/lessons/code-review-standards.md#report-format).
 
 Include branch and scope if available for context.
 
@@ -496,7 +496,7 @@ All clear! No critical issues detected.
 ## Notes
 
 - Review agents run in parallel for speed (~2-3 minutes for full review)
-- Each agent persists output to a timestamped JSON file (see [Multi-Agent Persistence Rule](../../rules/multi-agent-persistence.md))
+- Each agent persists output to a timestamped JSON file (see [Multi-Agent Persistence Rule](../../../docs/lessons/multi-agent-persistence.md))
 - The orchestrator reads and aggregates all persisted outputs
 - Partial results survive orchestrator failure due to persistence
 - Historical reviews can be compared across multiple runs
@@ -506,7 +506,7 @@ All clear! No critical issues detected.
   - Use `--no-issue` to skip issue creation
 - Use `--quick` for pre-commit checks
 - Use `/fix-full-review` to address findings interactively
-- Apply [KISS Principle](../../rules/kiss-principle.md) as a guardrail on all recommendations
+- Apply [KISS Principle](../../../docs/lessons/kiss-principle.md) as a guardrail on all recommendations
 - Follow [Generated Code Policy](../../rules/generated-code-policy.md) for any `generated`/`__generated__` files
 
 ---
@@ -550,8 +550,8 @@ If the orchestrator crashes mid-review:
 
 ## Related
 
-- [Code Review Standards](../../rules/code-review-standards.md) - Severity levels and checklists
+- [Code Review Standards](../../../docs/lessons/code-review-standards.md) - Severity levels and checklists
 - [Fix Full Review Skill](../fix-full-review/SKILL.md) - `/fix-full-review` to fix issues
 - [Agents Index](./agents/index.md) - Full agent registry
 - [Architecture Rules](../../rules/architecture.md)
-- [SOLID Principles](../../rules/solid-principles.md)
+- [SOLID Principles](../../../docs/lessons/solid-principles.md)

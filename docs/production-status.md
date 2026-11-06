@@ -133,7 +133,7 @@ order_items 147, permissions 46, user_permissions 1799, …), zero orders point
 at a missing profile, and the receipts bucket holds all 154 files.
 
 Two traps, both paid for already, are recorded in
-[`.claude/rules/supabase-wipe.md`](../.claude/rules/supabase-wipe.md): drop
+[`docs/lessons/supabase-wipe.md`](lessons/supabase-wipe.md): drop
 the audit schemas with `public` or the baseline fails with 42P16, and always
 restore with `--restore` (it truncates the seeded reference tables first;
 a hand restore leaves seeded and restored rows coexisting with no error).

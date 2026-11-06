@@ -120,4 +120,4 @@ To add a new agent:
 ## Related
 
 - [SKILL.md](../SKILL.md) - Main skill orchestration
-- [Code Review Standards](../../../rules/code-review-standards.md) - Severity guidelines
+- [Code Review Standards](../../../../docs/lessons/code-review-standards.md) - Severity guidelines

@@ -15,7 +15,7 @@ description: Initializes a task with git branch, documentation artifacts, AND au
 > - Do NOT push to remote
 > - Wait for user to explicitly request commits
 
-See [Git Safety Rule](../../rules/git-safety.md)
+See [Git Safety Rule](../../../docs/lessons/git-safety.md)
 
 ---
 
@@ -1097,6 +1097,6 @@ Start working on issue 88 as a chore
 
 ## Related Rules
 
-- [Git Workflow](../../rules/git-workflow.md) - Branch naming conventions
+- [Git Workflow](../../../docs/lessons/git-workflow.md) - Branch naming conventions
 - [Testing Rules](../../rules/testing.md) - TDD requirements and best practices
-- [Git Safety](../../rules/git-safety.md) - Git safety and commit guidelines
+- [Git Safety](../../../docs/lessons/git-safety.md) - Git safety and commit guidelines

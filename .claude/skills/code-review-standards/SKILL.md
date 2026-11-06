@@ -241,7 +241,7 @@ Validates [CSS Consistency](../../../docs/lessons/css-consistency.md) across all
 
 ### Testing Agent (TEST)
 
-Validates [Testing Rules](../../../docs/lessons/testing.md) and [E2E Selectors](./e2e-selectors.md):
+Validates [Testing Rules](../../../docs/lessons/testing.md) and [E2E Selectors](../../../docs/lessons/e2e-selectors.md):
 
 - [ ] **Test Files Exist** - Components have `.test.tsx` files
 - [ ] **Test IDs with `tid()`** - **Preferred selector** for all testable elements (stability across UI changes)
