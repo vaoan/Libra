@@ -545,3 +545,5 @@ useEffect(() => {
 - [Architecture](./architecture.md)
 - [SOLID Principles](./solid-principles.md)
 - [Testing Rules](./testing.md)
+
+<!-- cspell:ignore Liskov Unparameterized -- this file moved here verbatim from .claude/rules/, which cspell does not scan. -->

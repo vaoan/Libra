@@ -833,3 +833,5 @@ beforeEach(() => {
 - [Run Tests Skill](../skills/run-tests/SKILL.md) - `/run-tests`
 - [E2E Eval Skill](../skills/e2e-eval/SKILL.md) - `/e2e-eval`
 - [Start Task Skill](../skills/start-task/SKILL.md) - Includes testing checklist
+
+<!-- cspell:ignore ppnpm -- this file moved here verbatim from .claude/rules/, which cspell does not scan. -->

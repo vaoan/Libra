@@ -174,3 +174,5 @@ Write(".ai-context/reports/{skill-name}_{timestamp}.md", finalReport);
 - [AI Documents Audit](../skills/ai-documents-audit/SKILL.md) - Reference implementation
 - [Project Intelligence](../skills/project-intelligence/SKILL.md) - Multi-agent analysis
 - [Full Review](../skills/full-review/SKILL.md) - 12-agent review system
+
+<!-- cspell:ignore Resumability -- this file moved here verbatim from .claude/rules/, which cspell does not scan. -->

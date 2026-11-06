@@ -467,3 +467,5 @@ When writing or reviewing code:
 3. Ensure derived types honor base contracts
 4. Keep interfaces small and focused
 5. Inject dependencies rather than importing directly
+
+<!-- cspell:ignore Liskov -- this file moved here verbatim from .claude/rules/, which cspell does not scan. -->
