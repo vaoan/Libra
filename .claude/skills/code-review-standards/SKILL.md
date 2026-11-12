@@ -1,4 +1,11 @@
-# Code Review Standards
+---
+name: code-review-standards
+description: Severity levels, category codes, issue IDs, per-category checklists and report format for reviewing Libra code. Use when writing or judging review findings, by hand or inside /full-review, /code-review or /fix-full-review.
+---
+
+# Code review standards
+
+Worked code examples for each policy: `docs/lessons/code-review-standards.md`.
 
 > Multi-agent code review system for comprehensive codebase analysis.
 
@@ -58,23 +65,23 @@ The `/full-review` skill performs automated code review using 12 specialized age
 
 ## Review Categories
 
-| Category            | Code    | Agent                     | Rule Reference                                      |
-| ------------------- | ------- | ------------------------- | --------------------------------------------------- |
-| Architecture        | `ARCH`  | Architecture Agent        | [architecture.md](./architecture.md)                |
-| SOLID               | `SOLID` | SOLID Agent               | [solid-principles.md](./solid-principles.md)        |
-| DRY                 | `DRY`   | DRY Agent                 | [dry-principle.md](./dry-principle.md)              |
-| KISS                | `KISS`  | All Agents                | [kiss-principle.md](./kiss-principle.md)            |
-| Components          | `COMP`  | Component Agent           | [component-patterns.md](./component-patterns.md)    |
-| Naming              | `NAME`  | Naming Agent              | [naming-conventions.md](./naming-conventions.md)    |
-| i18n                | `I18N`  | i18n Agent                | [i18n Standards](#i18n-standards)                   |
-| Styling             | `STYLE` | Tailwind Agent            | [tailwind.md](./tailwind.md)                        |
-| **CSS Consistency** | `CSS`   | **CSS Consistency Agent** | [css-consistency.md](./css-consistency.md)          |
-| Testing             | `TEST`  | Testing Agent             | [testing.md](./testing.md)                          |
-| Security            | `SEC`   | Security Agent            | [Security Standards](#security-standards)           |
-| Performance         | `PERF`  | Performance Agent         | [Performance Standards](#performance-standards)     |
-| **Bugs**            | `BUG`   | **Bug Detection Agent**   | [Bug Detection Standards](#bug-detection-standards) |
-| Best Practices      | `BEST`  | Best Practices Agent      | Web research-based                                  |
-| Patterns            | `PAT`   | Pattern Discovery Agent   | Codebase analysis                                   |
+| Category            | Code    | Agent                     | Rule Reference                                                       |
+| ------------------- | ------- | ------------------------- | -------------------------------------------------------------------- |
+| Architecture        | `ARCH`  | Architecture Agent        | [architecture.md](../../../docs/lessons/architecture.md)             |
+| SOLID               | `SOLID` | SOLID Agent               | [solid-principles.md](../../../docs/lessons/solid-principles.md)     |
+| DRY                 | `DRY`   | DRY Agent                 | [dry-principle.md](../../../docs/lessons/dry-principle.md)           |
+| KISS                | `KISS`  | All Agents                | [kiss-principle.md](../../../docs/lessons/kiss-principle.md)         |
+| Components          | `COMP`  | Component Agent           | [component-patterns.md](../../../docs/lessons/component-patterns.md) |
+| Naming              | `NAME`  | Naming Agent              | [naming-conventions.md](../../../docs/lessons/naming-conventions.md) |
+| i18n                | `I18N`  | i18n Agent                | [i18n Standards](#i18n-standards)                                    |
+| Styling             | `STYLE` | Tailwind Agent            | [tailwind.md](../../../docs/lessons/tailwind.md)                     |
+| **CSS Consistency** | `CSS`   | **CSS Consistency Agent** | [css-consistency.md](../../../docs/lessons/css-consistency.md)       |
+| Testing             | `TEST`  | Testing Agent             | [testing.md](../../../docs/lessons/testing.md)                       |
+| Security            | `SEC`   | Security Agent            | [Security Standards](#security-standards)                            |
+| Performance         | `PERF`  | Performance Agent         | [Performance Standards](#performance-standards)                      |
+| **Bugs**            | `BUG`   | **Bug Detection Agent**   | [Bug Detection Standards](#bug-detection-standards)                  |
+| Best Practices      | `BEST`  | Best Practices Agent      | Web research-based                                                   |
+| Patterns            | `PAT`   | Pattern Discovery Agent   | Codebase analysis                                                    |
 
 ---
 
@@ -101,22 +108,6 @@ The `/full-review` skill performs automated code review using 12 specialized age
 - If the same combination appears many times, consider creating a **component** (not a constant).
 - The only exception: component variant definitions using `cva()` from class-variance-authority.
 
-**Example - Do NOT suggest this:**
-
-```typescript
-// BAD: Extracting Tailwind classes to constants
-const CARD_STYLES = "rounded-lg border p-4";
-<div className={CARD_STYLES}>...</div>
-
-// GOOD: Keep classes inline
-<div className="rounded-lg border p-4">...</div>
-
-// GOOD: If reused often, create a component
-function Card({ children }) {
-  return <div className="rounded-lg border p-4">{children}</div>;
-}
-```
-
 ### CSS Variable Strings Policy
 
 - **Never** suggest extracting CSS variable strings to JS constants.
@@ -124,27 +115,6 @@ function Card({ children }) {
 - The CSS variables are **already the single source of truth** (defined in `globals.css`).
 - Extracting to JS constants creates unnecessary indirection and moves styling concerns into JavaScript.
 - Color changes should happen in CSS, not in JavaScript constant files.
-
-**Example - Do NOT suggest this:**
-
-```typescript
-// BAD: Extracting CSS variables to JS constants
-const MUTED_COLOR = "var(--muted-foreground)";
-<XAxis tick={{ fill: MUTED_COLOR }} />
-
-// GOOD: Keep CSS variables inline as strings
-<XAxis tick={{ fill: "var(--muted-foreground)" }} />
-
-// BAD: Creating a COLORS constant object
-const COLORS = {
-  MUTED: "var(--muted-foreground)",
-  GRID: "var(--border)",
-};
-
-// GOOD: Use CSS variable strings directly
-stroke="var(--border)"
-fill="var(--muted-foreground)"
-```
 
 **Note:** Numeric values for Recharts (font sizes, stroke widths, etc.) **can** be constants because they require JavaScript numbers. Only CSS variable **strings** should stay inline.
 
@@ -168,7 +138,7 @@ All issues are identified with a unique ID:
 
 ### Architecture Agent (ARCH)
 
-Validates [Clean Architecture](./architecture.md) compliance:
+Validates [Clean Architecture](../../../docs/lessons/architecture.md) compliance:
 
 - [ ] **Layer Dependencies** - Dependencies flow inward only (Presentation → Application → Domain)
 - [ ] **Feature Isolation** - No cross-feature imports
@@ -188,11 +158,11 @@ Validates [Clean Architecture](./architecture.md) compliance:
   - Types → `domain/types/` (not inline `{ id: string; name: string }`)
   - Mocks → `src/mocks/data/` (not inline `[{ id: '1' }]`)
   - Config → env variables or config files (not hardcoded URLs)
-- [ ] **URL State** - User-facing state in hooks uses nuqs (`useQueryStates`) instead of `useState` when appropriate (filters, pagination, tabs, view modes). See [URL State Rule](./url-state.md)
+- [ ] **URL State** - User-facing state in hooks uses nuqs (`useQueryStates`) instead of `useState` when appropriate (filters, pagination, tabs, view modes). See [URL State Rule](../../../docs/lessons/url-state.md)
 
 ### SOLID Agent (SOLID)
 
-Validates [SOLID Principles](./solid-principles.md):
+Validates [SOLID Principles](../../../docs/lessons/solid-principles.md):
 
 - [ ] **Single Responsibility** - Components do one thing well
 - [ ] **Open/Closed** - Extensible via props/composition, not modification
@@ -202,7 +172,7 @@ Validates [SOLID Principles](./solid-principles.md):
 
 ### DRY Agent (DRY)
 
-Validates [DRY Principle](./dry-principle.md):
+Validates [DRY Principle](../../../docs/lessons/dry-principle.md):
 
 - [ ] **No Knowledge Duplication** - Same logic in one place only
 - [ ] **Rule of Three** - Abstract after 3+ occurrences
@@ -212,9 +182,9 @@ Validates [DRY Principle](./dry-principle.md):
 
 ### Component Patterns Agent (COMP)
 
-Validates [Component Patterns](./component-patterns.md):
+Validates [Component Patterns](../../../docs/lessons/component-patterns.md):
 
-- [ ] **One Component Per File** - Each file exports only one React component (see [one-component-per-file.md](./one-component-per-file.md))
+- [ ] **One Component Per File** - Each file exports only one React component (see [one-component-per-file.md](../../../docs/lessons/one-component-per-file.md))
 - [ ] **Standard Structure** - hooks → derived → handlers → render
 - [ ] **Props Interface Co-location** - Types defined with component
 - [ ] **'use client' Directive** - Applied correctly for client components
@@ -223,7 +193,7 @@ Validates [Component Patterns](./component-patterns.md):
 
 ### Naming Conventions Agent (NAME)
 
-Validates [Naming Conventions](./naming-conventions.md):
+Validates [Naming Conventions](../../../docs/lessons/naming-conventions.md):
 
 - [ ] **File Naming** - PascalCase components, camelCase hooks/utils
 - [ ] **Variable Naming** - camelCase, boolean prefixes (is/has/can)
@@ -243,7 +213,7 @@ Validates internationalization standards:
 
 ### Tailwind/Styling Agent (STYLE)
 
-Validates [Tailwind CSS](./tailwind.md) patterns:
+Validates [Tailwind CSS](../../../docs/lessons/tailwind.md) patterns:
 
 - [ ] **Semantic Colors** - All colors MUST use semantic tokens, not raw Tailwind palette colors. This includes color maps, style constants, and inline classes. Check the mapping:
   - `red-*` → `destructive` (e.g., `text-destructive` not `text-red-500`)
@@ -259,7 +229,7 @@ Validates [Tailwind CSS](./tailwind.md) patterns:
 
 ### CSS Consistency Agent (CSS)
 
-Validates [CSS Consistency](./css-consistency.md) across all apps in the monorepo:
+Validates [CSS Consistency](../../../docs/lessons/css-consistency.md) across all apps in the monorepo:
 
 - [ ] **`@source` Directive** - All apps include `@source` for ui package scanning
 - [ ] **CSS Variables Sync** - `:root` and `.dark` variables identical across apps
@@ -271,7 +241,7 @@ Validates [CSS Consistency](./css-consistency.md) across all apps in the monorep
 
 ### Testing Agent (TEST)
 
-Validates [Testing Rules](./testing.md) and [E2E Selectors](./e2e-selectors.md):
+Validates [Testing Rules](../../../docs/lessons/testing.md) and [E2E Selectors](../../../docs/lessons/e2e-selectors.md):
 
 - [ ] **Test Files Exist** - Components have `.test.tsx` files
 - [ ] **Test IDs with `tid()`** - **Preferred selector** for all testable elements (stability across UI changes)
@@ -346,41 +316,6 @@ Analyzes code for potential bugs and runtime errors:
 
 ## i18n Standards
 
-### Required Practices
-
-```typescript
-// CORRECT: Using translations
-'use client';
-import { useTranslations } from 'next-intl';
-
-export function MyComponent() {
-  const t = useTranslations('myComponent');
-  return <h1>{t('title')}</h1>;
-}
-
-// INCORRECT: Hardcoded string
-export function MyComponent() {
-  return <h1>My Title</h1>; // 🔴 Missing i18n
-}
-```
-
-### Key Naming Convention
-
-```json
-{
-  "common": {
-    "loading": "Loading...",
-    "error": "An error occurred"
-  },
-  "dashboard": {
-    "title": "Dashboard",
-    "metrics": {
-      "cycleTime": "Cycle Time"
-    }
-  }
-}
-```
-
 ---
 
 ## Security Standards
@@ -394,16 +329,6 @@ export function MyComponent() {
 | SQL injection       | 🔴 Critical | Unparameterized queries        |
 | CSRF missing        | 🟠 Warning  | Forms without CSRF protection  |
 | Insecure deps       | 🟠 Warning  | Dependencies with CVEs         |
-
-### Safe Patterns
-
-```typescript
-// CORRECT: Environment variable
-const apiKey = process.env.NEXT_PUBLIC_API_KEY;
-
-// INCORRECT: Hardcoded secret
-const apiKey = "sk_live_abc123"; // 🔴 CRITICAL
-```
 
 ---
 
@@ -488,60 +413,12 @@ Reports are saved to `.ai-context/reviews/` with this structure:
 | Stale closure               | 🟠 Warning  | Outdated state in callback            |
 | Missing error boundary      | 🟠 Warning  | Component tree without error handling |
 
-### Common Bug Examples
-
-```typescript
-// 🔴 BUG: Null pointer - user might be undefined
-const name = user.name; // Will crash if user is null
-
-// ✅ FIX: Null check
-const name = user?.name ?? "Unknown";
-
-// 🔴 BUG: Missing effect cleanup
-useEffect(() => {
-  const interval = setInterval(() => setCount((c) => c + 1), 1000);
-  // Missing cleanup - memory leak!
-}, []);
-
-// ✅ FIX: Proper cleanup
-useEffect(() => {
-  const interval = setInterval(() => setCount((c) => c + 1), 1000);
-  return () => clearInterval(interval);
-}, []);
-
-// 🔴 BUG: Stale closure
-const handleClick = () => {
-  setTimeout(() => {
-    console.log(count); // Always logs initial count value
-  }, 1000);
-};
-
-// ✅ FIX: Use ref or include in dependency
-const countRef = useRef(count);
-countRef.current = count;
-const handleClick = () => {
-  setTimeout(() => {
-    console.log(countRef.current); // Current value
-  }, 1000);
-};
-
-// 🔴 BUG: Missing dependency in useEffect
-useEffect(() => {
-  fetchData(userId); // userId not in deps
-}, []); // Will only fetch once!
-
-// ✅ FIX: Include dependency
-useEffect(() => {
-  fetchData(userId);
-}, [userId]);
-```
-
 ---
 
 ## Related
 
-- [Full Review Skill](../skills/full-review/SKILL.md) - `/full-review`
-- [Fix Full Review Skill](../skills/fix-full-review/SKILL.md) - `/fix-full-review`
-- [Architecture](./architecture.md)
-- [SOLID Principles](./solid-principles.md)
-- [Testing Rules](./testing.md)
+- [Full Review Skill](../full-review/SKILL.md) - `/full-review`
+- [Fix Full Review Skill](../fix-full-review/SKILL.md) - `/fix-full-review`
+- [Architecture](../../../docs/lessons/architecture.md)
+- [SOLID Principles](../../../docs/lessons/solid-principles.md)
+- [Testing Rules](../../../docs/lessons/testing.md)

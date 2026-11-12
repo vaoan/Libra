@@ -210,5 +210,5 @@ Creates a complete `src/features/orders/` structure.
 ## Related
 
 - [Architecture Rules](../../rules/architecture.md) - Folder structure and layer responsibilities
-- [Naming Conventions](../../rules/naming-conventions.md) - File and folder naming rules
+- [Naming Conventions](../../../docs/lessons/naming-conventions.md) - File and folder naming rules
 - [Component Patterns](../../rules/component-patterns.md) - Component structure guidelines

@@ -790,6 +790,7 @@ alone is not a valid conventional-commit type and the title check will reject it
 | [`docs/adr/`](docs/adr/)                                                               | You want to know why a boundary exists          |
 | [`docs/hooks-ci-release/`](docs/hooks-ci-release/)                                     | You want the hooks → CI → release flow diagrams |
 | [`.claude/rules/`](.claude/rules/)                                                     | You want the enforceable version of a convention |
+| [`docs/lessons/`](docs/lessons/README.md)                                              | You want the full text and the why behind a rule |
 
 ---
 

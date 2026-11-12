@@ -462,4 +462,4 @@ push to main              │   GitHub Actions          │
 
 - [Infrastructure & Deployment Guide](./infrastructure.md) — Full server setup, Cloudflare tunnel, fresh install runbook
 - [Environment System](./environment.md) — How `.env.*` files and secrets work
-- `.claude/rules/supabase-wipe.md` — How to wipe and re-migrate Supabase
+- `docs/lessons/supabase-wipe.md` — How to wipe and re-migrate Supabase

@@ -18,6 +18,9 @@ This folder contains custom skills that extend Claude's capabilities for this pr
 | [review-pr-comments](./review-pr-comments/SKILL.md)         | `/review-pr-comments [pr_number]` | Review PR comments and address approved feedback                                       |
 | [sync-with-develop](./sync-with-develop/SKILL.md)           | `/sync-with-develop`              | Keep feature branch up to date with develop                                            |
 | [create-release](./create-release/SKILL.md)                 | `/create-release`                 | Create production release (develop → main)                                             |
+| [git-workflow](./git-workflow/SKILL.md) | `/git-workflow` | Branch names and targets, commit format, PR title limit, merging, releases |
+| [code-review-standards](./code-review-standards/SKILL.md) | `/code-review-standards` | Severity levels, category codes, checklists and report format for reviews |
+| [supabase-wipe](./supabase-wipe/SKILL.md) | `/supabase-wipe` | Wipe a Supabase project and re-apply migrations; owner-invoked only |
 | [security-audit](./security-audit/SKILL.md)                 | `/security-audit`                 | Comprehensive security vulnerability scan                                              |
 | [investigate-error](./investigate-error/SKILL.md)           | `/investigate-error`              | Structured error debugging workflow                                                    |
 | [checkpoint](./checkpoint/SKILL.md)                         | `/checkpoint [summary]`           | Save work state for resuming later                                                     |

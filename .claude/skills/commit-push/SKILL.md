@@ -16,7 +16,7 @@ description: Commits and pushes changes using only MCP tools. Includes code revi
 > - Do NOT suggest running this skill
 > - Wait for explicit user request
 
-See [Git Safety Rule](../../rules/git-safety.md)
+See [Git Safety Rule](../../../docs/lessons/git-safety.md)
 
 ---
 
@@ -183,14 +183,14 @@ const hasJsTsFiles = jstsFiles.length > 0;
 
 Review the changed JS/TS files against these rules:
 
-| Rule                   | File                                                               | What to Check                             |
-| ---------------------- | ------------------------------------------------------------------ | ----------------------------------------- |
-| Semantic Colors        | [tailwind.md](../../rules/tailwind.md)                             | No `text-green-500`, use `text-success`   |
-| Architecture           | [architecture.md](../../rules/architecture.md)                     | Correct layer placement, absolute imports |
-| Naming                 | [naming-conventions.md](../../rules/naming-conventions.md)         | PascalCase components, camelCase hooks    |
-| No Hardcoding          | [no-hardcoding.md](../../rules/no-hardcoding.md)                   | No magic numbers/strings                  |
-| Component Patterns     | [component-patterns.md](../../rules/component-patterns.md)         | Proper structure                          |
-| One Component Per File | [one-component-per-file.md](../../rules/one-component-per-file.md) | One React component per `.tsx` file       |
+| Rule                   | File                                                                 | What to Check                             |
+| ---------------------- | -------------------------------------------------------------------- | ----------------------------------------- |
+| Semantic Colors        | [tailwind.md](../../rules/tailwind.md)                               | No `text-green-500`, use `text-success`   |
+| Architecture           | [architecture.md](../../rules/architecture.md)                       | Correct layer placement, absolute imports |
+| Naming                 | [naming-conventions.md](../../../docs/lessons/naming-conventions.md) | PascalCase components, camelCase hooks    |
+| No Hardcoding          | [no-hardcoding.md](../../../docs/lessons/no-hardcoding.md)           | No magic numbers/strings                  |
+| Component Patterns     | [component-patterns.md](../../rules/component-patterns.md)           | Proper structure                          |
+| One Component Per File | [one-component-per-file.md](../../rules/one-component-per-file.md)   | One React component per `.tsx` file       |
 
 **Read each changed file and check for violations.**
 
@@ -296,7 +296,7 @@ mcp__git__git_commit({
 
 **Commit message format:**
 
-Follow [commit message conventions](../../rules/git-workflow.md#commit-messages):
+Follow [commit message conventions](../../../docs/lessons/git-workflow.md#commit-messages):
 
 - Conventional commits: `type(scope): description`
 - Include ticket reference if applicable: `[GH-XXX]`
@@ -499,8 +499,8 @@ Pushed to origin/fix/GH-70_Login-Fix
 
 ## Related
 
-- [Git Workflow](../../rules/git-workflow.md) - Commit message conventions
+- [Git Workflow](../../../docs/lessons/git-workflow.md) - Commit message conventions
 - [Submit PR](../submit-pr/SKILL.md) - Full PR workflow
 - [Sync with Develop](../sync-with-develop/SKILL.md) - Sync and review workflow
-- [MCP-First Rule](../../rules/mcp-first.md) - Always use MCP tools
+- [MCP-First Rule](../../../docs/lessons/mcp-first.md) - Always use MCP tools
 - [Testing Rules](../../rules/testing.md) - Test writing guidelines

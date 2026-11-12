@@ -17,7 +17,7 @@ description: Save current work state for resuming later. Creates a checkpoint fi
 >
 > If stashing is ever needed, will ASK first.
 
-See [Git Safety Rule](../../rules/git-safety.md)
+See [Git Safety Rule](../../../docs/lessons/git-safety.md)
 
 ---
 

@@ -317,6 +317,6 @@ Fix: Check file exists and is not too large (GitHub limit: 2GB per asset)
 
 ## Related Rules
 
-- [Git Safety](../../rules/git-safety.md) - No auto-commits
+- [Git Safety](../../../docs/lessons/git-safety.md) - No auto-commits
 - [E2E Selectors](../../rules/e2e-selectors.md) - Stable element selectors
 - [Testing](../../rules/testing.md) - Testing standards

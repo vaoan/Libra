@@ -1,3 +1,17 @@
+---
+paths:
+  - "apps/store/**/*cart*"
+  - "apps/store/tests/groupBySeller.test.ts"
+  - "apps/store/src/features/products/domain/types.ts"
+  - "apps/store/src/features/products/presentation/components/ProductCard.tsx"
+  - "apps/store/src/features/products/presentation/components/ProductDetail/HeroSection.tsx"
+  - "packages/shared/src/*/cart.ts"
+  - "apps/*/e2e/*checkout*"
+  - "apps/payments/**"
+  - "supabase/migrations/**"
+  - "tests/db/seller-payment-methods.test.ts"
+---
+
 # Checkout Stock Integrity
 
 ## Rule
@@ -34,3 +48,7 @@ following coverage in place:
 - Can a tampered cart still cause payment details to be returned?
 - Does checkout with stock issues render only the warning state?
 - Do database policies still prevent public reads of seller payment methods?
+
+## Where the rest lives
+
+This file is the whole rule; the same text is at `docs/lessons/checkout-stock-integrity.md`. Threat model and required behaviour by layer: `docs/standards/checkout-stock-integrity.md`.

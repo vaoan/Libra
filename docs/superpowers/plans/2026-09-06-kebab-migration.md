@@ -9,8 +9,8 @@
 **Tech Stack:** Node 24, pnpm 10.32.1, ts-morph (new devDependency), vitest (`vitest.config.scripts.js`), ESLint 9 flat config with `eslint-plugin-unicorn`, `@ls-lint/ls-lint`.
 
 **Spec:** `docs/superpowers/specs/2026-09-06-kebab-migration-design.md`
-**Decision record:** `../../../orrery/docs/decisions/0001-file-naming.md`
-**Parent design:** `../../../orrery/docs/specs/2026-09-06-orrery-design.md`
+**Decision record:** `../../../Themis/docs/decisions/0001-file-naming.md`
+**Parent design:** `../../../Themis/docs/specs/2026-09-06-themis-design.md`
 
 ## Global Constraints
 
@@ -1204,7 +1204,7 @@ Leave the `ignore:` block unchanged. Replace the file's leading comment block â€
 ```yaml
 # ls-lint configuration
 # Enforces kebab-case file naming across the monorepo.
-# Rationale and alternatives considered: orrery/docs/decisions/0001-file-naming.md
+# Rationale and alternatives considered: Themis/docs/decisions/0001-file-naming.md
 ```
 
 - [ ] **Step 6: Verify ls-lint passes with the extended coverage**
@@ -1237,7 +1237,7 @@ Acronyms are split like any other word boundary: `MSWProvider` becomes
 
 Enforced by `unicorn/filename-case` in `eslint.config.mjs` and by `.ls-lint.yml`.
 Reasoning and the alternatives considered:
-`orrery/docs/decisions/0001-file-naming.md`.
+`Themis/docs/decisions/0001-file-naming.md`.
 ```
 
 Leave the **Folders** table and every identifier-casing section (variables, functions, constants, enum-like objects) unchanged â€” those are out of scope.
@@ -1265,7 +1265,7 @@ Turns on unicorn/filename-case, replaces the permissive ls-lint regexes,
 and extends ls-lint coverage to apps/*/tests, apps/*/test and
 packages/*/tests, which were previously unchecked for naming.
 
-Ref: orrery/docs/decisions/0001-file-naming.md"
+Ref: Themis/docs/decisions/0001-file-naming.md"
 git push -u origin chore/kebab-enforcement
 gh pr create --base develop \
   --title "chore: enforce kebab-case filenames" \
@@ -1284,4 +1284,4 @@ gh pr create --base develop \
 
 ## Next
 
-Phase 1 (aeleos: add `forceConsistentCasingInFileNames`, zero renames) and Phase 2 (build orrery) are separate plans. Phase 2 begins with `orrery diff-eslint`, because it sizes the reconciliation work.
+Phase 1 (aeleos: add `forceConsistentCasingInFileNames`, zero renames) and Phase 2 (build Themis) are separate plans. Phase 2 begins with `themis diff-eslint`, because it sizes the reconciliation work.

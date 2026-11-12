@@ -2,7 +2,7 @@
 
 This folder contains **portable** architecture documentation that Claude references for understanding project structure and patterns.
 
-> **Important**: All content here must be generic and project-agnostic. See [Portability Rule](../rules/portability.md).
+> **Important**: All content here must be generic and project-agnostic. See [Portability Rule](../../docs/lessons/portability.md).
 
 ## Available Documentation
 

@@ -85,7 +85,7 @@ For each issue (starting with Critical, then Warning, then Suggestion):
    const metrics = data?.metrics;
    ```
 
-   Rule: [Bug Detection Standards](../../rules/code-review-standards.md#bug-detection-standards)
+   Rule: [Bug Detection Standards](../../../docs/lessons/code-review-standards.md#bug-detection-standards)
 
    ```
 
@@ -373,5 +373,5 @@ During fixing, you can use these commands:
 ## Related
 
 - [Full Review Skill](../full-review/SKILL.md) - Generate review reports
-- [Code Review Standards](../../rules/code-review-standards.md) - Issue categories
-- [Git Safety](../../rules/git-safety.md) - Commit rules apply
+- [Code Review Standards](../../../docs/lessons/code-review-standards.md) - Issue categories
+- [Git Safety](../../../docs/lessons/git-safety.md) - Commit rules apply

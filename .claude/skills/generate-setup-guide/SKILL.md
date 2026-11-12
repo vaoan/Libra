@@ -314,7 +314,7 @@ See [Architecture Documentation](.claude/docs/architecture/overview.md) for deta
 3. Submit PR to `develop` branch
 4. Ensure all checks pass
 
-See [Git Workflow](.claude/rules/git-workflow.md) for details.
+See [Git Workflow](docs/lessons/git-workflow.md) for details.
 
 ## AI Assistance
 
@@ -430,7 +430,7 @@ Creates: domain/, application/, infrastructure/, presentation/ structure.
 
 - [Architecture](.claude/docs/architecture/overview.md)
 - [Testing Rules](.claude/rules/testing.md)
-- [Git Workflow](.claude/rules/git-workflow.md)
+- [Git Workflow](docs/lessons/git-workflow.md)
 
 ```
 

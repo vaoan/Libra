@@ -16,7 +16,7 @@ description: Merge a pull request with safety checks and appropriate strategy.
 > - Do NOT suggest running this skill
 > - This is a DESTRUCTIVE operation (deletes branch after merge)
 
-See [Git Safety Rule](../../rules/git-safety.md)
+See [Git Safety Rule](../../../docs/lessons/git-safety.md)
 
 ---
 
@@ -630,4 +630,4 @@ This protection is hardcoded in the skill and cannot be overridden.
 ## Related
 
 - [Submit PR](../submit-pr/SKILL.md) - `/submit-pr` to create PRs
-- [Git Workflow](../../rules/git-workflow.md) - Branch and merge conventions
+- [Git Workflow](../../../docs/lessons/git-workflow.md) - Branch and merge conventions
