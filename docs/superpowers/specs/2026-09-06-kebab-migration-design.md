@@ -2,9 +2,9 @@
 
 **Status:** approved design, not yet implemented
 **Date:** 2026-09-06
-**Phase:** 0 of the orrery programme
-**Decision record:** `orrery/docs/decisions/0001-file-naming.md`
-**Parent design:** `orrery/docs/specs/2026-09-06-orrery-design.md`
+**Phase:** 0 of the Themis programme
+**Decision record:** `Themis/docs/decisions/0001-file-naming.md`
+**Parent design:** `Themis/docs/specs/2026-09-06-themis-design.md`
 
 Rename every source, test, and e2e file in this repository to kebab-case, and
 close the enforcement gaps that let the current convention drift unobserved.
@@ -170,4 +170,4 @@ The codemod runs against 694 real files, so it gets fixtures first:
   gains `forceConsistentCasingInFileNames`, which it currently lacks, in Phase 1.
 - After this phase, ls-lint reconciliation between the two repos becomes a
   superset merge rather than a conflict, which is why this runs before the
-  orrery extraction.
+  Themis extraction.

@@ -11,7 +11,7 @@ The full text behind Libra's Claude instructions. Nothing here loads on its own:
 | `.claude/skills/*/SKILL.md`       | The description at launch; body on invoke | Procedures, with their steps          |
 | `docs/lessons/*.md`               | Only when read                            | The explanation, examples, history    |
 
-Budget, at bytes divided by 3: at most 10,000 tokens at session start and 25,000 in a task touching one vertical slice. Root stays under 200 lines and each rule under 100. A rule without `paths:`, or with globs matching over 40% of tracked source, counts against session start. Orrery measures this: `orrery instructions <repo> --base origin/develop`.
+Budget, at bytes divided by 3: at most 10,000 tokens at session start and 25,000 in a task touching one vertical slice. Root stays under 200 lines and each rule under 100. A rule without `paths:`, or with globs matching over 40% of tracked source, counts against session start. Themis measures this: `themis instructions <repo> --base origin/develop`.
 
 `paths:` starts on line 1 of the rule file, or the file counts as unscoped.
 
